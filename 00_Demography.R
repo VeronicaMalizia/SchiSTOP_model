@@ -39,7 +39,8 @@ for(i in 2:nrow(pop0)){
 hist(cohort$age)
 
 ##Parameters
-T <- 400 #number of years
+T <- 200 #number of years
+ts <- T*12
 birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
 max.pop <- 700
 #annual time step
@@ -63,18 +64,19 @@ results <- foreach(k = 1:seeds,
                      pop <- cohort
                      N <- nrow(pop)
                      
-                     for(t in 1:T){ #(T*12)
+                     for(t in 1:ts){ 
                        
                        sink("Sink_demography.txt", append=TRUE)
                        cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
                        sink()
-                       #The reaper
-                       if(nrow(pop)>max.pop)
+                       
+                       #The reaper(acts annually)
+                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop)
                          pop <- slice_sample(pop, prop = 0.9)
                        
                        #Births
                        #for now birth rate does not depend on age-specific female fertility 
-                       births <- rpois(1, (birth_rate*(nrow(pop)/1000)))
+                       births <- rpois(1, (birth_rate*(nrow(pop)/1000))/12)
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5))) #new born
                        
@@ -87,11 +89,11 @@ results <- foreach(k = 1:seeds,
                        dead <- c()
                        for(i in 1:nrow(pop)){
                          if(pop$sex[i]==0){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Male"]))
+                           if(rbernoulli(1, p=prob_death[ag[i], "Male"]/12))
                              dead <- c(dead, i)
                          }
                          if(pop$sex[i]==1){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Female"]))
+                           if(rbernoulli(1, p=prob_death[ag[i], "Female"]/12))
                              dead <- c(dead, i)
                          }    
                        }
@@ -100,7 +102,7 @@ results <- foreach(k = 1:seeds,
                          pop <- pop[-dead,]
                        
                        #Update age
-                       pop$age <- pop$age + 1
+                       pop$age <- pop$age + 1/12
                        N <- c(N, nrow(pop))
                        
                        # sink("Find_bug.txt", append=TRUE)
@@ -109,8 +111,8 @@ results <- foreach(k = 1:seeds,
                        # sink()
                      }
                      
-                     res <- tibble(time = 0:(T),
-                                   seed = rep(k, ((T)+1)),
+                     res <- tibble(time = 0:ts,
+                                   seed = rep(k, (ts+1)),
                                    pop_size = N)
                    }
                       
@@ -132,7 +134,7 @@ ggplot(res) +
                      #limits = c(0, 1000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
-                     limits = c(0, T),
+                     limits = c(0, ts),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
 
@@ -140,7 +142,7 @@ hist(cohort$age)
 hist(pop$age, breaks = c(0, prob_death$Age_hi[-c(1, nrow(prob_death))]))
 
 #Saving image
-tiff("Demography.tif", width=7, height=6, units = "in", res = 300)
+tiff("Demography_monthlyts.tif", width=7, height=6, units = "in", res = 300)
 ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
@@ -148,8 +150,8 @@ ggplot(res) +
                      breaks = seq(0, 1000, 200),
                      limits = c(0, 1000),
                      expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [years]",
-                     limits = c(0, T),
+  scale_x_continuous(name = "Time [months]",
+                     limits = c(0, ts),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
 dev.off()
