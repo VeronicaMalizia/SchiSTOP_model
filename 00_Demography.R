@@ -27,7 +27,7 @@ le <- 60 #Life expectancy (Uganda)
 
 cohort <- tibble(age = round(c(runif(pop0$N_males[1], 0, pop0$Age_limit[1]),
                                runif(pop0$N_females[1], 0, pop0$Age_limit[1]))),
-                 sex = c(rep(0, pop0$N_males[1]), rep(1, pop0$N_females[1])))
+                 sex = c(rep(0, pop0$N_males[1]), rep(1, pop0$N_females[1]))) #Sub-Saharan Africa
 #0=male, 1=female
 for(i in 2:nrow(pop0)){
   tmp <- tibble(age = round(c(runif(pop0$N_males[i], pop0$Age_limit[i-1]+1, pop0$Age_limit[i]),
@@ -40,11 +40,13 @@ hist(cohort$age)
 
 ##Parameters
 T <- 400 #number of years
-birth_rate <- 37 #Crude birth rate Uganda (per 1000 individuals)
+birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
+max.pop <- 700
 #annual time step
 
-seeds <- 1
+seeds <- 10
 writeLines(c(""), "Sink_demography.txt") #initiate log file
+writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
 registerDoParallel(cluster)
@@ -66,6 +68,9 @@ results <- foreach(k = 1:seeds,
                        sink("Sink_demography.txt", append=TRUE)
                        cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
                        sink()
+                       #The reaper
+                       if(nrow(pop)>max.pop)
+                         pop <- slice_sample(pop, prop = 0.9)
                        
                        #Births
                        #for now birth rate does not depend on age-specific female fertility 
@@ -91,12 +96,17 @@ results <- foreach(k = 1:seeds,
                          }    
                        }
                        
-                       #if(length(dead>0)){
+                       if(length(dead>0))
                          pop <- pop[-dead,]
                        
                        #Update age
                        pop$age <- pop$age + 1
                        N <- c(N, nrow(pop))
+                       
+                       # sink("Find_bug.txt", append=TRUE)
+                       # cat(paste(Sys.time(), ": Time step", t, "NB:",
+                       #           births, "deads", length(dead), "Pop size:", nrow(pop), "\n", sep = " "))
+                       # sink()
                      }
                      
                      res <- tibble(time = 0:(T),
@@ -114,14 +124,12 @@ avg_res <- res %>%
   group_by(time) %>%
   summarise(N = mean(pop_size))
             
-plot(res$time, res$pop_size, type = 'l')
-
 ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
   scale_y_continuous(name = "Population size (counts)",
                      breaks = seq(0, 1000, 200),
-                     limits = c(0, 1000),
+                     #limits = c(0, 1000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
                      limits = c(0, T),
@@ -129,7 +137,7 @@ ggplot(res) +
   expand_limits(x = 0,y = 0)
 
 hist(cohort$age)
-hist(pop$age)
+hist(pop$age, breaks = c(0, prob_death$Age_hi[-c(1, nrow(prob_death))]))
 
 #Saving image
 tiff("Demography.tif", width=7, height=6, units = "in", res = 300)
@@ -145,3 +153,6 @@ ggplot(res) +
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
 dev.off()
+
+
+plot(N, type='l')
