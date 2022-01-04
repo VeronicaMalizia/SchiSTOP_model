@@ -1,4 +1,4 @@
 # Schisto_model
-Transmission model Schistosomiasis
+Transmission model of Schistosomiasis
 
 ## First model for Schistosomiasis transmission
