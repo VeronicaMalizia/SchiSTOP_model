@@ -43,7 +43,7 @@ T <- 200 #number of years
 ts <- T*12
 birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
 max.pop <- 700
-#annual time step
+#monthly time step
 
 seeds <- 10
 writeLines(c(""), "Sink_demography.txt") #initiate log file
@@ -71,7 +71,7 @@ results <- foreach(k = 1:seeds,
                        sink()
                        
                        #The reaper(acts annually)
-                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop)
+                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop) #Januaries
                          pop <- slice_sample(pop, prop = 0.9)
                        
                        #Births
@@ -83,23 +83,27 @@ results <- foreach(k = 1:seeds,
                        pop <- bind_rows(pop, nb)
                        
                        #Deaths
-                       ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
-                       # pop <- pop %>%
-                       #   mutate(ag = ag)
-                       dead <- c()
-                       for(i in 1:nrow(pop)){
-                         if(pop$sex[i]==0){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Male"]/12))
-                             dead <- c(dead, i)
-                         }
-                         if(pop$sex[i]==1){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Female"]/12))
-                             dead <- c(dead, i)
-                         }    
-                       }
                        
-                       if(length(dead>0))
-                         pop <- pop[-dead,]
+                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop){ #Januaries
+                         ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
+                         # pop <- pop %>%
+                         #   mutate(ag = ag)
+                         for(i in 1:nrow(pop)){
+                           if(pop$sex[i]==0){
+                             if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
+                               death_month <- runif(1, 1, 12)
+                               pop$death_age <- pop$age + death_month/12
+                             }
+                           }
+                           if(pop$sex[i]==1){
+                             if(rbernoulli(1, p=prob_death[ag[i], "Female"])){
+                               death_month <- runif(1, 1, 12)
+                               pop$death_age <- pop$age + death_month/12
+                             }
+                           }    
+                         }
+                       }
+                       pop <- pop[-which(pop$age >= pop$death_age),]
                        
                        #Update age
                        pop$age <- pop$age + 1/12
