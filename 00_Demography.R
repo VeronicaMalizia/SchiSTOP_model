@@ -61,7 +61,8 @@ results <- foreach(k = 1:seeds,
                      
                      #Time step events, for each individual
                      #Initialize
-                     pop <- cohort
+                     pop <- cohort %>%
+                       mutate(death_age=150)
                      N <- nrow(pop)
                      
                      for(t in 1:ts){ 
@@ -92,18 +93,21 @@ results <- foreach(k = 1:seeds,
                            if(pop$sex[i]==0){
                              if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
                                death_month <- runif(1, 1, 12)
-                               pop$death_age <- pop$age + death_month/12
+                               pop$death_age[i] <- pop$age[i] + death_month/12
                              }
                            }
                            if(pop$sex[i]==1){
                              if(rbernoulli(1, p=prob_death[ag[i], "Female"])){
                                death_month <- runif(1, 1, 12)
-                               pop$death_age <- pop$age + death_month/12
+                               pop$death_age[i] <- pop$age[i] + death_month/12
                              }
                            }    
                          }
                        }
-                       pop <- pop[-which(pop$age >= pop$death_age),]
+                       
+                       tmp <- which(pop$age >= pop$death_age)
+                       if(length(tmp)>0)
+                         pop <- pop[-tmp,]
                        
                        #Update age
                        pop$age <- pop$age + 1/12
