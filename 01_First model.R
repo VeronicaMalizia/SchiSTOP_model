@@ -1,11 +1,14 @@
 #############################
 #Author: Veronica Malizia
-#Date: 27/10/2021
+#Date: 27/12/2021
 #R version: 3.6.1
 
-#This will generate a first toy model, without human demography (no age/birth/deaths)
+#This script runs a toy model from R source, with human demography (aging/birth/deaths)
 #and basic transmission dynamics with a central reservoir.
-#Data: Initial cohort population from WORMSIM input file
+#Code for plotting included.
+#Data required: 
+# 1. Initial cohort population from WORMSIM input file
+# 2. Death_probabilities from WHO App - South Africa
 #############################
 rm(list = ls())
 
@@ -37,21 +40,23 @@ for(i in 2:nrow(pop0)){
 
 hist(cohort$age)
 
-ggplot(cohort,aes(x=age,group=as.factor(sex),fill= as.factor(sex)))+
-  geom_histogram(position="dodge",binwidth=5)+
-  theme_bw()
+# ggplot(cohort,aes(x=age,group=as.factor(sex),fill= as.factor(sex)))+
+#   geom_histogram(position="dodge",binwidth=5)+
+#   theme_bw()
 
 ##Parameters
-T <- 100 #number of years
+T <- 200 #number of years
+seeds <- 10
 #monthly time step
-birth_rate <- 37 #Crude birth rate Uganda (per 1000 individuals)
+birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
+max.pop <- 700
 k_w <- 0.24 #Anderson, Turner (2016)
 v <- 1 #Transmission probability
 zeta <- 0.1 #overall exposure rate
-Tw <- 5.7 #Average worm's lifespan in host (years)(Anderson and May 1985a)
-phi1 <- exp(-1/(Tw*12)) #(monthly) dyeing probability of worms within the host
+Tw <- 5.7 #Average worm's lifespan in host in months (years)(Anderson and May 1985a)
+phi1 <- 1-exp(-1/(Tw*12)) #(monthly) dieying probability of worms within the host
 #phi2 <- exp(-1/(xx*12)) #survival probability of particles in the reservoir
-alpha <- 0.24 #expected number of eggs per sample per worm pair (Sake 1996)
+alpha <- 0.28 #expected number of eggs per sample per worm pair (Sake 1996)
 z <- 0.0007
 k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.22 Sake1992)
 # a <- 1.2 #a, b, c, parameter of the exp saturating function for the material the clous (saturating of available snails)
@@ -62,8 +67,8 @@ expanding_factor <- 1 #Multiplicative factor of miracidia in snails. (i.e. N.of 
 dens_dep <- F
 mda <- tibble(age.lo = 5,
              age.hi = 15,
-             start = 0, #50
-             end = 0, #70
+             start = 100,
+             end = 110,
              frequency = 1, #annual
              coverage = 0.75,
              efficacy = 0.80)
@@ -79,7 +84,7 @@ ggplot(cohort,aes(x=w))+
 hist(cohort$Ind_sus)
 
 #Functions
-age_groups <- c(0, 5, 10, 16, 150)
+age_groups <- c(0, 5, 10, 16, 200)
 exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06)
 Age_profile <- function(a){
   approx(x=age_groups, y=exposure_rates, xout=c(a), method = "constant")
@@ -89,7 +94,6 @@ foi <- function(l, zeta, v, a, is){
   Rel_ex <- Age_profile(a)$y * is
   return(l * zeta * v * Rel_ex)
 }
-cum_exp <- sum(Age_profile(cohort$age)$y*cohort$Ind_sus) #Cumulative exposure
 egg_prod <- function(alpha, beta, w){ #Hyperbolic saturating function for egg production
   f <- (alpha*w) / (1 + ((alpha*w) / beta))
   return(f)
@@ -99,154 +103,19 @@ exp_sat <- function(a, b, c, x){ #Exponential saturating function
   return(f)
 }
 
+
 #Compute initial worms' pair
 mw0 <- rbinom(length(cohort$w), cohort$w, 0.5) #male worms
 fw0 <- cohort$w-mw0 #female worms
 #Create initial cloud
-eggs <- alpha*(pmin(mw0, fw0))*exp(-z*fw0)
-contributions <- eggs * Age_profile(cohort$age)$y * cohort$Ind_sus
+eggs0 <- alpha*(pmin(mw0, fw0))*exp(-z*fw0)
+contributions0 <- eggs0 * Age_profile(cohort$age)$y * cohort$Ind_sus
+#Initial cumulative exposure
+cum_exp <- sum(Age_profile(cohort$age)$y * cohort$Ind_sus) 
+SAC <- which(cohort$age >= 5 & cohort$age <= 15)
 
-
-seeds <- 5
-writeLines(c(""), "Sink.txt") #initiate log file
-
-cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
-registerDoParallel(cluster)
-
-results <- foreach(k = 1:seeds,
-                   .inorder = TRUE,
-                   .errorhandling = "remove",
-                   #.combine = bind_rows,
-                   .packages = c("tidyverse")) %dopar% {
-                    #for each seed:
-
-                    #Time step events, for each individual
-                    #Initialize
-                    pop <- cohort %>%
-                      mutate(mw = mw0, #male worms
-                             fw = fw0) #female worms
-                    N <- nrow(pop)
-                    SAC <- which(pop$age >= 5 & pop$age <= 15)
-                    
-                    true_prev <- length(which(pop$w>0))/N
-                    eggs_prev <- c(0)
-                    eggs_prev_SAC <- c(0)
-                    Heggs_prev <- c(0)
-                    
-                    #Create initial cloud
-                    cloud <- sum(contributions) #External FOI (to start infection)
-                    #m_in <- rep(0, 12*T)
-                    for(t in 1:(12*T)){
-                      
-                      sink("Sink.txt", append=TRUE)
-                      cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
-                      sink()
-                      
-                      #Individual events
-                      nw <- rep(0, nrow(pop)) #individual exposures
-                      ec <- eggs #individual egg counts
-                      co <- contributions #individual contributions
-                      
-                      #Births
-                      #for now birth rate does not depend on age-specific female fertility 
-                      births <- rpois(1, (birth_rate*(nrow(pop)/1000))/12)
-                      nb <- tibble(age = rep(0, births),
-                                   sex = as.numeric(rbernoulli(births, 0.5)),
-                                   w = rep(0, births),
-                                   Ind_sus = rgamma(1, shape = k_w, scale = 1/k_w),
-                                   mw = rep(0, births),
-                                   fw = rep(0, births)) #new born
-                      
-                      pop <- bind_rows(pop, nb)
-                      
-                      #Deaths
-                      ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
-                      # pop <- pop %>%
-                      #   mutate(ag = ag)
-                      dead <- c()
-                      for(i in 1:nrow(pop)){
-                        if(pop$sex[i]==0){
-                          if(rbernoulli(1, p=prob_death[ag[i], "Male"]/12))
-                            dead <- c(dead, i)
-                        }
-                        if(pop$sex[i]==1){
-                          if(rbernoulli(1, p=prob_death[ag[i], "Female"]/12))
-                            dead <- c(dead, i)
-                        }    
-                      }
-                      
-                      if(length(dead)>0)
-                        pop <- pop[-dead,]
-                      
-                      #Update age and population size
-                      pop$age <- pop$age + 1/12
-                      N <- c(N, nrow(pop))
-                      SAC <- which(pop$age >= 5 & pop$age <= 15)
-                      
-                      for(i in 1:nrow(pop)){
-                        #Exposure
-                        #The individual assumes new worms nw (FOI)
-                        #and only a portion survives from the previous month
-                        rate <- foi(l=cloud, zeta, v, a=pop$age[i], is=pop$Ind_sus[i])
-                        nw[i] <- rpois(1, rate/cum_exp)
-                        #they are assigned sex
-                        malesnw <- rbinom(1, nw[i], 0.5)
-                        
-                        #Worms
-                        #Worms' pairs (so mature) produce eggs
-                        wp <- min(pop$mw[i], pop$fw[i])
-                        eggs <- alpha*wp #*exp(-z*fw[i])
-                        #Diagnosis 
-                        ec[i] <- rnbinom(1, size=k_e, mu=eggs) 
-                        
-                        #Individual contribution 
-                        #Eggs released that will become miracidia and infect snails
-                        #neglect contribution rate for now
-                        co[i] <- co_rate * eggs * Age_profile(pop$age[i])$y * pop$Ind_sus[i]
-                        
-                        #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
-                        if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                          if(pop$age[i] >= mda$age.lo & pop$age[i] <= mda$age.hi){
-                            if(rbernoulli(1, mda$coverage)){ #it works in around 75% of the target pop
-                              pop$mw[i] <- round((1-mda$efficacy)*pop$mw[i])
-                              pop$fw[i] <- round((1-mda$efficacy)*pop$fw[i])
-                           }
-                         }
-                        }
-                        
-                        #Worms are updated for the next month with:
-                        #the newborn, which will be mature the next month
-                        #also with survival portion of males and females worms from the previous month
-                        pop$mw[i] <- pop$mw[i] - rbinom(1, pop$mw[i], phi1) + malesnw
-                        pop$fw[i] <- pop$fw[i] - rbinom(1, pop$fw[i], phi1) + (nw[i] - malesnw)
-                      }
-                      #Reservoir/cloud
-                      #Miracidiae intake at step t from the cloud
-                      #m_in[t] <- sum(co)
-                      #try first simple cloud without snails
-                      #cloud <- m_in[t - 1]*expanding_factor
-                      cloud <- sum(co) 
-                      # if(t < 12*3) #External foi to start infection (3 years)
-                      #   cloud <- cloud + Ext_foi
-                      
-                      #Summary statistics
-                      true_prev[t] <- length(which(pop$mw>0|pop$fw>0))/nrow(pop)
-                      eggs_prev[t] <- length(which(ec>0))/nrow(pop)
-                      eggs_prev_SAC[t] <- length(which(ec[SAC]>0))/length(SAC)
-                      Heggs_prev[t] <- length(which((ec*24)>=400))/nrow(pop)
-                    }
-
-                    res <- tibble(time = 1:(12*T),
-                                  seed = rep(k, (12*T)),
-                                  pop_size = N[-1],
-                                  true_prev = true_prev,
-                                  eggs_prev = eggs_prev,
-                                  eggs_prev_SAC = eggs_prev_SAC,
-                                  Heggs_prev = Heggs_prev)
-                    #I would add seed number
-                   }
-
-stopCluster(cluster)
+#Run the model
+source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
 
 #Collating results
 res <- bind_rows(results)
@@ -260,21 +129,9 @@ avg_res <- res %>%
             eggs_prev_SAC = mean(eggs_prev_SAC),
             Heggs_prev = mean(Heggs_prev))
 
-#Plot population size
-ggplot(res) +
-  geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=N), size=1) +
-  scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 1000, 200),
-                     #limits = c(0, 1000),
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [years]",
-                     limits = c(0, T*12),
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0)
 
 #Plot prevalence
-ggplot(res) +
+Fig <- ggplot(res) +
   geom_line(aes(x=time, y=true_prev, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=true_prev, color="True")) +
   geom_line(aes(x=time, y=eggs_prev, group = seed), color = "turquoise", alpha = 0.3) +
@@ -293,36 +150,27 @@ ggplot(res) +
                      limits = c(0, 1),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [Months]",
-                     limits = c(0, 1200),
+                     #limits = c(0, 1200),
                      expand = c(0, 0)) +
+  coord_cartesian(xlim=c(500, (T*12))) +
   expand_limits(x = 0,y = 0)
 
-#Average results
-avg_res <- lapply(results, function(x) x$true_prev)
-avg_res <- matrix(unlist(avg_res), ncol = 12*T, byrow = TRUE)
-#runs <- tibble(True_prev = avg_res)
-avg_trueprev <- apply(avg_res, 2, mean)
+Fig
 
-avg_res <- lapply(results, function(x) x$eggs_prev)
-avg_res <- matrix(unlist(avg_res), ncol = 12*T, byrow = TRUE)
-#runs <- bind_cols(runs, Eggs_prev = )
-avg_eggsprev <- apply(avg_res, 2, mean)
+#Saving image
+tiff("Prevalence_densdep_MDA.tif", width=7, height=6, units = "in", res = 300)
+Fig
+dev.off()
 
-avg_res <- lapply(results, function(x) x$eggs_prev_SAC)
-avg_res <- matrix(unlist(avg_res), ncol = 12*T, byrow = TRUE)
-avg_eggsprevSAC <- apply(avg_res, 2, mean)
-
-avg_res <- lapply(results, function(x) x$Heggs_prev)
-avg_res <- matrix(unlist(avg_res), ncol = 12*T, byrow = TRUE)
-avg_Heggsprev <- apply(avg_res, 2, mean)
-
-
-plot(avg_trueprev, type = 'l', xlab = "Time [Months]", ylim=c(0, 1))
-lines(avg_eggsprev, type = 'l', xlab ="Time [Months]", col="dark blue")
-lines(avg_eggsprevSAC, type = 'l', xlab ="Time [Months]", col="dark green")
-lines(avg_Heggsprev, type = 'l', xlab ="Time [Months]", col="dark red")
-
-# plot(res$true_prev[which(res$time>1400 & res$time<1800)], type = 'l', xlab ="Time [Months]")
-# plot(res$eggs_prev[which(res$time>1400 & res$time<1800)], type = 'l', xlab ="Time [Months]")
-# plot(res$eggs_prev_SAC[which(res$time>1400 & res$time<1800)], type = 'l',
-#       col="red", xlab ="Time [Months]")
+#Plot population size
+ggplot(res) +
+  geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
+  geom_line(data=avg_res, aes(x=time, y=N), size=1) +
+  scale_y_continuous(name = "Population size (counts)",
+                     breaks = seq(0, 1000, 200),
+                     limits = c(0, 1000),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Time [years]",
+                     limits = c(0, T*12),
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0)

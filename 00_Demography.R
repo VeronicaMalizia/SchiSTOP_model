@@ -85,7 +85,7 @@ results <- foreach(k = 1:seeds,
                        
                        #Deaths
                        
-                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop){ #Januaries
+                       if(t %in% seq(1, ts, 12)){ #Januaries
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
                          # pop <- pop %>%
                          #   mutate(ag = ag)
