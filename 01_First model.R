@@ -53,7 +53,7 @@ table(cohort$sex)
 
 ##Parameters
 T <- 200 #number of years
-seeds <- 1
+seeds <- 10
 #monthly time step
 birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
 max.pop <- 1000
@@ -164,7 +164,7 @@ Fig <- ggplot(res) +
 Fig
 
 #Saving image
-tiff("Prevalence_densdep_MDA.tif", width=7, height=6, units = "in", res = 300)
+tiff("Prevalence_densdep_V03.tif", width=7, height=6, units = "in", res = 300)
 Fig
 dev.off()
 
