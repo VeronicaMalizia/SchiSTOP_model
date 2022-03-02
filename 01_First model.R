@@ -52,11 +52,13 @@ table(cohort$sex)
 #   theme_bw()
 
 ##Parameters
-T <- 200 #number of years
+T <- 100 #number of years
 seeds <- 10
 #monthly time step
-birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
-max.pop <- 1000
+birth_rate <- 35.7 #35.7 is crude annual birth rate Uganda 2021, 34.8 for Sub-Saharan Africa (per 1000 individuals)
+#-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
+emig_rate <- 10 #This approximates the emigration rate from rural villages (2021) (per 1000 individuals)
+#max.pop <- 1000
 k_w <- 0.15 #Anderson, Turner (2016)
 v <- 1 #Transmission probability
 zeta <- 0.9 #overall exposure rate
@@ -173,8 +175,21 @@ ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
   scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 1500, 500),
-                     limits = c(0, 1500),
+                     breaks = seq(0, 10000, 500),
+                     #limits = c(0, 1500),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Time [years]",
+                     limits = c(0, T*12),
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0)
+
+#Plot particles in the environmental reservoir
+ggplot(res) +
+  geom_line(aes(x=time, y=reservoir, group = seed), color = "grey20", alpha = 0.3) +
+  geom_line(data=avg_res, aes(x=time, y=reservoir), size=1) +
+  scale_y_continuous(name = "Environmental reservoir (particles)",
+                     breaks = seq(0, 10000, 200),
+                     #limits = c(0, 1500),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
                      limits = c(0, T*12),

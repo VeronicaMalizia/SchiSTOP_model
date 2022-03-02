@@ -49,65 +49,40 @@ results <- foreach(k = 1:seeds,
                      #Create initial cloud
                      m_in <- sum(contributions0)
                      cloud <- hyp_sat(alpha=a, beta=b, m_in)
+                     reservoir <- cloud
                      for(t in 2:(12*T)){
                        
                        sink("Sink.txt", append=TRUE)
                        cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
                        sink()
                        
-                       # #Beginning of each month, update demography
-                       # #The reaper(acts annually)
+                       #Beginning of each month, update demography
+                       #The reaper(acts annually)
                        # if(t %in% seq(1, (T*12), 12) & nrow(pop)>max.pop)
                        #   pop <- slice_sample(pop, prop = 0.9)
-                       # 
-                       # #Births
-                       # #for now birth rate does not depend on age-specific female fertility
-                       # births <- rpois(1, (birth_rate*(nrow(pop)/1000))/12)
-                       # #new born
-                       # nb <- tibble(age=rep(0, births),
-                       #              sex=as.numeric(rbernoulli(births, 0.5)),
-                       #              w = rep(0, births),
-                       #              Ind_sus = rgamma(1, shape = k_w, scale = 1/k_w),
-                       #              death_age = 150,
-                       #              mw = rep(0, births),
-                       #              fw = rep(0, births),
-                       #              nw = rep(0, births),
-                       #              ec = rep(0, births),
-                       #              co = rep(0, births))
-                       # 
-                       # pop <- bind_rows(pop, nb)
-                       # 
-                       # #Deaths
-                       # 
-                       # if(t %in% seq(1, (T*12), 12)){ #Januaries
-                       #   ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
-                       # 
-                       #   for(i in 1:nrow(pop)){
-                       #     if(pop$sex[i]==0){
-                       #       if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
-                       #         death_month <- runif(1, 1, 12)
-                       #         pop$death_age[i] <- pop$age[i] + death_month/12
-                       #       }
-                       #     }
-                       #     if(pop$sex[i]==1){
-                       #       if(rbernoulli(1, p=prob_death[ag[i], "Female"])){
-                       #         death_month <- runif(1, 1, 12)
-                       #         pop$death_age[i] <- pop$age[i] + death_month/12
-                       #       }
-                       #     }
-                       #   }
-                       # }
-                       # 
-                       # tmp <- which(pop$age >= pop$death_age)
-                       # if(length(tmp)>0)
-                       #   pop <- pop[-tmp,]
-                       
-                       #Replacement of deaths
+
+                       #Births
+                       #for now birth rate does not depend on age-specific female fertility
+                       births <- rpois(1, (birth_rate*(nrow(pop)/1000))/12)
+                       #new born
+                       nb <- tibble(age=rep(0, births),
+                                    sex=as.numeric(rbernoulli(births, 0.5)),
+                                    w = rep(0, births),
+                                    Ind_sus = rgamma(1, shape = k_w, scale = 1/k_w),
+                                    death_age = 150,
+                                    mw = rep(0, births),
+                                    fw = rep(0, births),
+                                    nw = rep(0, births),
+                                    ec = rep(0, births),
+                                    co = rep(0, births))
+
+                       pop <- bind_rows(pop, nb)
+
                        #Deaths
+
                        if(t %in% seq(1, (T*12), 12)){ #Januaries
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
-                         # pop <- pop %>%
-                         #   mutate(ag = ag)
+
                          for(i in 1:nrow(pop)){
                            if(pop$sex[i]==0){
                              if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
@@ -124,20 +99,56 @@ results <- foreach(k = 1:seeds,
                          }
                        }
 
-                       #Replace dead individuals with new borns (reset age, sex, ind quantities)
                        tmp <- which(pop$age >= pop$death_age)
-                       if(length(tmp)>0){
-                         pop$age[tmp] <- -1/12 #to end up at zero with age updating
-                         pop$sex[tmp] <- as.numeric(rbernoulli(length(tmp), 0.5)) #later, update with sex ratio
-                         pop$death_age[tmp] <- 150
-                         pop$w[tmp] <- 0
-                         pop$Ind_sus[tmp] <- rgamma(length(tmp), shape = k_w, scale = 1/k_w)
-                         pop$mw[tmp] <- 0
-                         pop$fw[tmp] <- 0
-                         pop$nw[tmp] <- 0
-                         pop$ec[tmp] <- 0
-                         pop$co[tmp] <- 0
-                       }
+                       if(length(tmp)>0)
+                         pop <- pop[-tmp,]
+                       
+                       #Migration
+                       #For now we do not account for age-specific emigration
+                       lambda <- (emig_rate*(nrow(pop)/1000))/12
+                       emigrates <- rpois(1, lambda)
+                       emig_age <- which(pop$age>15&pop$age<55)
+                       emigrated <- sample(emig_age, emigrates)
+                       if(length(emigrated)>0)
+                         pop <- pop[-emigrated,]
+                       
+
+                       # #Replacement of deaths
+                       # #Deaths
+                       # if(t %in% seq(1, (T*12), 12)){ #Januaries
+                       #   ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
+                       #   # pop <- pop %>%
+                       #   #   mutate(ag = ag)
+                       #   for(i in 1:nrow(pop)){
+                       #     if(pop$sex[i]==0){
+                       #       if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
+                       #         death_month <- runif(1, 1, 12)
+                       #         pop$death_age[i] <- pop$age[i] + death_month/12
+                       #       }
+                       #     }
+                       #     if(pop$sex[i]==1){
+                       #       if(rbernoulli(1, p=prob_death[ag[i], "Female"])){
+                       #         death_month <- runif(1, 1, 12)
+                       #         pop$death_age[i] <- pop$age[i] + death_month/12
+                       #       }
+                       #     }
+                       #   }
+                       # }
+                       # 
+                       # #Replace dead individuals with new borns (reset age, sex, ind quantities)
+                       # tmp <- which(pop$age >= pop$death_age)
+                       # if(length(tmp)>0){
+                       #   pop$age[tmp] <- -1/12 #to end up at zero with age updating
+                       #   pop$sex[tmp] <- as.numeric(rbernoulli(length(tmp), 0.5)) #later, update with sex ratio
+                       #   pop$death_age[tmp] <- 150
+                       #   pop$w[tmp] <- 0
+                       #   pop$Ind_sus[tmp] <- rgamma(length(tmp), shape = k_w, scale = 1/k_w)
+                       #   pop$mw[tmp] <- 0
+                       #   pop$fw[tmp] <- 0
+                       #   pop$nw[tmp] <- 0
+                       #   pop$ec[tmp] <- 0
+                       #   pop$co[tmp] <- 0
+                       # }
 
                        #Update age, population size, SAC and cumulative exposure
                        pop$age <- pop$age + 1/12
@@ -204,6 +215,7 @@ results <- foreach(k = 1:seeds,
                        sink()
                        
                        #Summary statistics
+                       reservoir[t] <- cloud
                        true_prev[t] <- length(which((pop$mw+pop$fw)>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
@@ -213,6 +225,7 @@ results <- foreach(k = 1:seeds,
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
                                    pop_size = N,
+                                   reservoir = reservoir,
                                    true_prev = true_prev,
                                    eggs_prev = eggs_prev,
                                    eggs_prev_SAC = eggs_prev_SAC,
