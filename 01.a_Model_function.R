@@ -33,9 +33,9 @@ results <- foreach(k = 1:seeds,
                      #Initialize
                      pop <- cohort %>%
                        mutate(death_age = 150,
-                              mw = mw0, #male worms
-                              fw = fw0,
-                              nw = 0,
+                              jw1 = 0,
+                              jw2 = 0,
+                              jw3 = 0,
                               ec = eggs0,
                               co = contributions0) #female worms
                      N <- nrow(pop)
@@ -67,12 +67,12 @@ results <- foreach(k = 1:seeds,
                        #new born
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5)),
-                                    w = rep(0, births),
+                                    wp = rep(0, births),
                                     Ind_sus = rgamma(1, shape = k_w, scale = 1/k_w),
                                     death_age = 150,
-                                    mw = rep(0, births),
-                                    fw = rep(0, births),
-                                    nw = rep(0, births),
+                                    jw1 = rep(0, births),
+                                    jw2 = rep(0, births),
+                                    jw3 = rep(0, births),
                                     ec = rep(0, births),
                                     co = rep(0, births))
 
@@ -163,27 +163,31 @@ results <- foreach(k = 1:seeds,
                        #and only a portion survives from the previous month
                        #One exposure rate per individual (based on age and ind. sus.)
                        rate <- foi(l=cloud, zeta, v, a=pop$age, is=pop$Ind_sus)
-                       pop$nw <- rpois(nrow(pop), rate/cum_exp)
-                       #per each human host, worms are assigned with sex
-                       malesnw <- rbinom(nrow(pop), pop$nw, 0.5)
+                       pop$jw1 <- rpois(nrow(pop), rate/cum_exp)
                        
                        #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
-                       if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                         for(i in 1:nrow(pop)){
-                           if(pop$age[i] >= mda$age.lo & pop$age[i] <= mda$age.hi){
-                             if(rbernoulli(1, mda$coverage)){ #it works in around 75% of the target pop
-                               pop$mw[i] <- round((1-mda$efficacy)*pop$mw[i])
-                               pop$fw[i] <- round((1-mda$efficacy)*pop$fw[i])
-                             }
-                           }
-                         }
-                       }
+                       # if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
+                       #   for(i in 1:nrow(pop)){
+                       #     if(pop$age[i] >= mda$age.lo & pop$age[i] <= mda$age.hi){
+                       #       if(rbernoulli(1, mda$coverage)){ #it works in around 75% of the target pop
+                       #         pop$mw[i] <- round((1-mda$efficacy)*pop$mw[i])
+                       #         pop$fw[i] <- round((1-mda$efficacy)*pop$fw[i])
+                       #       }
+                       #     }
+                       #   }
+                       # }
                        
                        #Worms
-                       #Worms' pairs (so mature) produce eggs
+                       #Worms' pairs (so mature at stage 4) produce eggs
                        #Shall we consider insemination probability??
-                       wp <- pmin(pop$mw, pop$fw)
-                       eggs <- alpha*wp #*exp(-z*pop$fw)
+                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
+                       #per each human host, juvenile worms at stage 3 are assigned with sex
+                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
+                       new_pairs <- pmin(malesnw, pop$jw3) 
+                       pop$wp <- pop$wp - rbinom(nrow(pop), pop$wp, phi1) + new_pairs
+                       #From here we track worm pairs as units. Do not track individual male/female worms in this version
+                       
+                       eggs <- alpha*pop$wp #*exp(-z*pop$fw)
                        #Diagnosis 
                        pop$ec <- rnbinom(nrow(pop), size=k_e, mu=eggs) 
                        
@@ -192,21 +196,19 @@ results <- foreach(k = 1:seeds,
                        #neglect contribution rate for now (set it to 1, to indicate no seasonal pattern)
                        pop$co <- co_rate * eggs * Age_profile(pop$age)$y * pop$Ind_sus
             
-                       
                        #Worms are updated for the next month with:
-                       #the newborn, which will be considered mature the next month
+                       #the newborn(juveniles), which will be considered mature the next month
                        #also with survival portion of males and females worms from the previous month
-                       pop$mw <- pop$mw - rbinom(nrow(pop), pop$mw, phi1) + malesnw
-                       pop$fw <- pop$fw - rbinom(nrow(pop), pop$fw, phi1) + (pop$nw - malesnw)
+                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
+                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
                        
                        #Reservoir/cloud
-                       #Miracidiae intake at step t from the cloud
+                       #Miracidiae intake at step t by the cloud
                        m_in[t] <- sum(pop$co)
                        #first simple cloud without explicit snails, but with both larval stages
                        #we assume miracidiae spend 1 month into snails
                        #in the final environmental cloud we have cercariae
                        #we assume particles not infecting humans do not survive from the previous month
-                       #Exponential saturation more accurate?
                        cloud <- hyp_sat(alpha=a, beta=b, m_in[t - 1])
                        #cloud <- sum(pop$co) 
 
@@ -216,7 +218,7 @@ results <- foreach(k = 1:seeds,
                        
                        #Summary statistics
                        reservoir[t] <- cloud
-                       true_prev[t] <- length(which((pop$mw+pop$fw)>0))/nrow(pop)
+                       true_prev[t] <- length(which(pop$wp>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
@@ -225,6 +227,7 @@ results <- foreach(k = 1:seeds,
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
                                    pop_size = N,
+                                   miracidiae = m_in,
                                    reservoir = reservoir,
                                    true_prev = true_prev,
                                    eggs_prev = eggs_prev,

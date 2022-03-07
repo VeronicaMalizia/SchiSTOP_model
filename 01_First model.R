@@ -68,8 +68,8 @@ phi1 <- 1-exp(-1/(Tw*12)) #(monthly) dying probability of worms within the host
 alpha <- 0.28 #expected number of eggs per sample per worm pair (Sake 1996)
 z <- 0.0007
 k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.22 Sake1992)
-a <- 0.9 #a, b parameter of the hyperbolic saturating function for cercariae(saturating of available snails)
-b <- 1000 #maximum output of cercariae in the environment (it may be difficult to estimate)
+a <- 300 #a, b parameter of the hyperbolic saturating function for cercariae(saturating of available snails)
+b <- 3000 #maximum output of cercariae in the environment (it may be difficult to estimate)
 # c <- 0.0861
 co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
 #expanding_factor <- 1 #Multiplicative factor of miracidia in snails. (i.e. N.of cercariae released)
@@ -83,13 +83,18 @@ mda <- tibble(age.lo = 5,
 
 #Population is initialized with a given worms distribution
 #(Initial/external Force of Infection)
+w0= rnbinom(nrow(cohort), size=k_w, mu=6)
+#Compute initial worms' pair
+mw0 <- rbinom(length(w0), w0, 0.5) #male worms
+fw0 <- w0-mw0 #female worms
 cohort <- cohort %>%
-  mutate(w = rnbinom(nrow(cohort), size=k_w, mu=6),
+  mutate(wp = pmin(mw0, fw0),
          Ind_sus = rgamma(nrow(cohort), shape = k_w, scale = 1/k_w))
 
-ggplot(cohort,aes(x=w))+
+ggplot(cohort,aes(x=wp))+
   geom_histogram(binwidth=5)+ theme_bw()
 hist(cohort$Ind_sus)
+hist(w0)
 
 #Functions
 age_groups <- c(0, 5, 10, 16, 200)
@@ -112,9 +117,6 @@ exp_sat <- function(a, b, c, x){ #Exponential saturating function
 }
 
 
-#Compute initial worms' pair
-mw0 <- rbinom(length(cohort$w), cohort$w, 0.5) #male worms
-fw0 <- cohort$w-mw0 #female worms
 #Create initial cloud
 eggs0 <- alpha*(pmin(mw0, fw0)) #*exp(-z*fw0)
 contributions0 <- eggs0 * Age_profile(cohort$age)$y * cohort$Ind_sus
@@ -132,6 +134,8 @@ res <- bind_rows(results)
 avg_res <- res %>%
   group_by(time) %>%
   summarise(N = mean(pop_size),
+            miracidiae = mean(miracidiae),
+            reservoir = mean(reservoir),
             true_prev = mean(true_prev),
             eggs_prev = mean(eggs_prev),
             eggs_prev_SAC = mean(eggs_prev_SAC),
@@ -188,8 +192,20 @@ ggplot(res) +
   geom_line(aes(x=time, y=reservoir, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=reservoir), size=1) +
   scale_y_continuous(name = "Environmental reservoir (particles)",
-                     breaks = seq(0, 10000, 200),
+                     #breaks = seq(0, 10000, 200),
                      #limits = c(0, 1500),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Time [years]",
+                     limits = c(0, T*12),
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0)
+
+ggplot(res) +
+  geom_line(aes(x=time, y=miracidiae, group = seed), color = "grey20", alpha = 0.3) +
+  geom_line(data=avg_res, aes(x=time, y=miracidiae), size=1) +
+  scale_y_continuous(name = "Total output of miracidiae",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0, 200000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
                      limits = c(0, T*12),
