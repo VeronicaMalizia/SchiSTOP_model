@@ -61,7 +61,7 @@ emig_rate <- 10 #This approximates the emigration rate from rural villages (2021
 #max.pop <- 1000
 k_w <- 0.15 #Anderson, Turner (2016)
 v <- 1 #Transmission probability
-zeta <- 0.9 #overall exposure rate
+zeta <- 0.9 #overall exposure rate (check the monthly definition)
 Tw <- 5 #Average worm's lifespan in host in months (years)(Anderson and May 1985a)
 phi1 <- 1-exp(-1/(Tw*12)) #(monthly) dying probability of worms within the host
 #phi2 <- exp(-1/(xx*12)) #survival probability of particles in the reservoir
