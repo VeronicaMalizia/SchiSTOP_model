@@ -9,7 +9,7 @@
 #############################
 
 library(deSolve)
-SIE <- function(t, x, parms) {    
+SEI <- function(t, x, parms) {    
     with(as.list(c(parms, x)), {
         N <- S+E+I #is better to work with densities?
         #Logistic growth
