@@ -12,8 +12,12 @@
 #############################
 rm(list = ls())
 
+.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
+setwd <- source.dir
 library(tidyverse)
 library(readxl)
+library(ggridges)
 library(foreach)
 library(doParallel)
 
@@ -21,6 +25,7 @@ library(doParallel)
 #Initial population
 #Starting with the initial cohort
 ################
+
 pop0 <- read_xlsx("Initial population_Uganda.xlsx")
 death_rates <- read.csv("death_rates_Uganda_2019.csv")
 prob_death <- read.csv("prob_death_Uganda_2019.csv")
@@ -98,11 +103,12 @@ hist(w0)
 
 #Functions
 age_groups <- c(0, 5, 10, 16, 200)
-exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06)
+exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06) #These should reflect a moderate adult burden setting
 Age_profile <- function(a){
   approx(x=age_groups, y=exposure_rates, xout=c(a), method = "constant")
 }
-plot(approx(x=age_groups, y=exposure_rates, method = "constant"), type = 'l')
+plot(approx(x=age_groups, y=exposure_rates, method = "constant"), xlim = c(0, 80), type = 'l', xlab = "Age", ylab = "Relative exposure rate")
+lines(approx(x=age_groups, y=c(0.01, 0.61, 1, 0.12, 0.12), method = "constant"), xlim = c(0, 80), type = 'l', col='red')
 foi <- function(l, zeta, v, a, is){
   Rel_ex <- Age_profile(a)$y * is
   return(l * zeta * v * Rel_ex)
@@ -127,6 +133,7 @@ SAC <- which(cohort$age >= 5 & cohort$age <= 15)
 #Run the model
 source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
 
+#Population-level results
 #Collating results (only if seeds>1)
 res <- bind_rows(results)
 
@@ -175,17 +182,22 @@ Fig
 dev.off()
 
 #Plot population size
+tiff(file.path(source.dir, "/Plots/Pop_size_migration.tif"), width=7, height=6, units = "in", res = 300)
+
 ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
   scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 10000, 500),
+                     breaks = seq(0, 10000, 1000),
                      #limits = c(0, 1500),
                      expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [years]",
-                     limits = c(0, T*12),
+  scale_x_continuous(name = "Time [months]",
+                     #breaks = seq(0, 10000, 500),
+                     limits = c(0, (T*12)+12),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
+
+dev.off()
 
 #Plot particles in the environmental reservoir
 ggplot(res) +
@@ -211,3 +223,84 @@ ggplot(res) +
                      limits = c(0, T*12),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
+
+#### Individual-level results
+#Collate results by seeds
+data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all output CSV files
+                       pattern = "Ind_out_seed_*", full.names = TRUE) %>% 
+            lapply(read_csv, show_col_types = F) %>%              # Store all files in list
+            bind_rows                                             # Combine data sets into one
+#Aggregate by age groups
+#Filter one year of interest
+year <- 61
+age_out <- data_all %>%
+  filter(time==year) %>%
+  mutate(age_group = case_when(age<=1 ~ "0_1",
+                               age>1 & age<=5 ~ "1_5",
+                               age>5 & age<=15 ~ "5_15",
+                               age>15 & age<=30 ~ "15_30",
+                               age>30 & age<=50 ~ "30_50",
+                               age>50 ~ "50_90")) %>%
+  group_by(seed, age_group, sex) %>%
+  summarise(ec = mean(ec*24), #geometric means
+            wp = mean(wp))
+  
+age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
+                                                          "1_5",
+                                                          "5_15",
+                                                          "15_30",
+                                                          "30_50",
+                                                          "50_90"))
+#Eggs by age
+ggplot(age_out)+
+  geom_boxplot(aes(x=age_group, y=ec), alpha = 0.3) +
+  facet_wrap(~ sex) +
+  scale_y_continuous(name = "Observed egg counts (epg)",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0, 200000),
+                     expand = c(0, 0)) +
+  scale_x_discrete(name = "Age [years]") +
+  expand_limits(x = 0,y = 0)
+
+#Intensity by age
+ggplot(age_out)+
+  geom_boxplot(aes(x=age_group, y=wp), alpha = 0.3) +
+  facet_wrap(~ sex) +
+  scale_y_continuous(name = "Average worm load (pairs)",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0, 200000),
+                     expand = c(0, 0)) +
+  scale_x_discrete(name = "Age [years]") +
+  expand_limits(x = 0,y = 0)
+
+##Age distribution by time
+#https://r-charts.com/distribution/ggridges/
+cohort_plot_age <- cohort %>%
+  select(age, sex, wp) %>%
+  mutate(ec = NA,
+         ID = 1:nrow(cohort),
+         time = 0,
+         seed = NA)
+bind_rows(cohort_plot_age,
+  data_all %>%
+  filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
+  ggplot(aes(x=round(age))) +
+  geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5, 
+                 fill="white", position = 'dodge') +
+  #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
+  guides(colour=guide_legend(title="Simulation seed")) +
+  scale_color_grey() +
+  facet_wrap(~ as.factor(time)) +
+  scale_y_continuous(name = "Density",
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Age [years]",
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0) +
+  theme(legend.position="top")
+
+
+data_all %>%
+   filter(time==1, seed==1) %>%
+   ggplot(aes(x=age)) +
+   geom_histogram(binwidth = 5) + 
+   stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) 

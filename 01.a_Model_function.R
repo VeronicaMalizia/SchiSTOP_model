@@ -36,7 +36,7 @@ results <- foreach(k = 1:seeds,
                               jw1 = 0,
                               jw2 = 0,
                               jw3 = 0,
-                              ec = eggs0,
+                              ec = 0,
                               co = contributions0) #female worms
                      N <- nrow(pop)
                      SAC <- which(pop$age >= 5 & pop$age <= 15)
@@ -47,9 +47,11 @@ results <- foreach(k = 1:seeds,
                      Heggs_prev <- c(0)
                      
                      #Create initial cloud
+                     #Initialise quantities
                      m_in <- sum(contributions0)
                      cloud <- hyp_sat(alpha=a, beta=b, m_in)
                      reservoir <- cloud
+                     ind_file <- c()
                      for(t in 2:(12*T)){
                        
                        sink("Sink.txt", append=TRUE)
@@ -222,7 +224,19 @@ results <- foreach(k = 1:seeds,
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       
+                       #Save annual individual output
+                       if(t %in% seq(12, (T*12), 10*12)){ #Decembers, every 10 years
+                         ind_file <- rbind(ind_file,
+                                           select(pop, age, sex, wp, ec) %>%
+                                           mutate(ID = 1:nrow(pop),
+                                                  time = t/12,
+                                                  seed = k))
+                       }
                      }
+                     
+                     filename <- paste("Ind_out_seed_", k, ".csv", sep="")
+                     write.csv(ind_file, file.path(source.dir, "/Output/", filename), row.names = F)
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
