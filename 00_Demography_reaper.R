@@ -16,6 +16,7 @@ library(readxl)
 library(foreach)
 library(doParallel)
 
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 ################
 #Initial population
 #Starting with the initial cohort
@@ -39,11 +40,21 @@ for(i in 2:nrow(pop0)){
 hist(cohort$age)
 
 ##Parameters
-T <- 200 #number of years
+T <- 100 #number of years
 ts <- T*12
-birth_rate <- 34.8 #37 is crude annual birth rate Uganda, 34.8 for Sub-Saharan Africa (per 1000 individuals)
-max.pop <- 700
+birth_rate <- 35.7 #35.7 is crude annual birth rate Uganda 2021, 34.8 for Sub-Saharan Africa (per 1000 individuals)
+#-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
+emig_rate <- 10 #This approximates the emigration rate from rural villages (2021) (per 1000 individuals)
+#max.pop <- 1000
 #monthly time step
+#relative migration index
+# age_cat <- c(0, 18, 20, 30, 35, 200)
+# migration_index <- c(0.1, 0.8, 0.9, 1, 0, 0)
+# Age_migration <- function(a){
+#   approx(x=age_cat, y=migration_index, xout=c(a), method = "constant")
+# }
+# plot(approx(x=age_cat, y=migration_index, method = "constant"), type = 'l')
+
 
 seeds <- 10
 writeLines(c(""), "Sink_demography.txt") #initiate log file
@@ -72,8 +83,8 @@ results <- foreach(k = 1:seeds,
                        sink()
                        
                        #The reaper(acts annually)
-                       if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop) #Januaries
-                         pop <- slice_sample(pop, prop = 0.9)
+                       # if(t %in% seq(1, ts, 12) & nrow(pop)>max.pop) #Januaries
+                       #   pop <- slice_sample(pop, prop = 0.9)
                        
                        #Births
                        #for now birth rate does not depend on age-specific female fertility 
@@ -109,6 +120,15 @@ results <- foreach(k = 1:seeds,
                        if(length(tmp)>0)
                          pop <- pop[-tmp,]
                        
+                       #Migration
+                       #For now we do not account for age-specific emigration
+                       lambda <- (emig_rate*(nrow(pop)/1000))/12
+                       emigrates <- rpois(1, lambda)
+                       emig_age <- which(pop$age>15&pop$age<55)
+                       emigrated <- sample(emig_age, emigrates)
+                       if(length(emigrated)>0)
+                         pop <- pop[-emigrated,]
+                       
                        #Update age
                        pop$age <- pop$age + 1/12
                        N <- c(N, nrow(pop))
@@ -138,13 +158,13 @@ ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
   scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 1000, 200),
+                     breaks = seq(0, 10000, 200),
                      #limits = c(0, 1000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
                      limits = c(0, ts),
                      expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0)
+  expand_limits(x = 0,y = 0) 
 
 hist(cohort$age)
 hist(pop$age, breaks = c(0, prob_death$Age_hi[-c(1, nrow(prob_death))]))
