@@ -24,8 +24,8 @@ registerDoParallel(cluster)
 
 results <- foreach(k = 1:seeds,
                    .inorder = TRUE,
-                   .errorhandling = "remove", #remove or pass
-                   #.verbose = TRUE,
+                   .errorhandling = "pass", #remove or pass
+                   .verbose = TRUE,
                    #.combine = bind_rows,
                    .packages = c("tidyverse", "deSolve")) %dopar% {
                      #for each seed:

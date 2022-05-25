@@ -181,7 +181,7 @@ avg_res <- res %>%
   group_by(time) %>%
   summarise(N = mean(pop_size),
             miracidiae = mean(miracidiae),
-            reservoir = mean(reservoir),
+            cercariae = mean(cercariae),
             true_prev = mean(true_prev),
             eggs_prev = mean(eggs_prev),
             eggs_prev_SAC = mean(eggs_prev_SAC),
@@ -266,8 +266,8 @@ dev.off()
 
 #Plot cercariae and miracidiae in the environmental reservoir
 ggplot(res) +
-  geom_line(aes(x=time, y=reservoir, group = seed), color = "grey20", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=reservoir), size=1) +
+  geom_line(aes(x=time, y=cercariae, group = seed), color = "grey20", alpha = 0.3) +
+  geom_line(data=avg_res, aes(x=time, y=cercariae), size=1) +
   scale_y_continuous(name = "Environmental reservoir (particles)",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 1500),
@@ -290,7 +290,7 @@ ggplot(res) +
   expand_limits(x = 0,y = 0)
 
 ggplot(avg_res) +
-  geom_line(aes(x=miracidiae, y=reservoir), size=1) +
+  geom_line(aes(x=miracidiae, y=cercariae), size=1) +
   scale_y_continuous(name = "Total output of cercariae",
                      #breaks = seq(0, 10000, 1000),
                      #limits = c(0, 10000),

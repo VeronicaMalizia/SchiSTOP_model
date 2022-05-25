@@ -22,19 +22,26 @@ SEI <- function(t, x, parms) {
         beta <- beta0*(1-N/k) #Infected snails do not reproduce
 
         #Equations
-        dS <- beta*(S+E) - (v+FOIs/N)*S #susceptible
+        dS <- beta*(S+E) - (v+(FOIs/N))*S #susceptible
         dE <- (FOIs/N)*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
         dI <- tau*E - (v+v2)*I  #Infected: larvae in the snail are mature and snails shed cercariae
-        res <- c(dS, dE, dI)
+        dC <- lambda*I - m*C #Cercariae (output)
+        res <- c(dS, dE, dI, dC)
         list(res)
     })
 }
 
+#Checks:
+## 1. N does not go towards k, because with respect to a normal logistic growth function (beta*(1-N/k)*N)
+##    here only S + E contribute to the reproduction. Moreover, I has an extra mortality factor.
+##    The population dynamics are different than a normal logistic growth population.
+##
+## 2. Does (and if so why) the snail infection prevalence is not affected by the choice of k? (see plotting code at the end of the document)
 
 ## Parameters
 #ENV = 500 #L, total volume of water
 max.reproduction.rate = 0.1 #d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
-carrying.capacity = 5000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
+carrying.capacity = 1000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
 lifespan = 100 #days, Civitello #Gurarie: about 3 months
 mortality.rate = 1/lifespan 
 #lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
@@ -46,14 +53,15 @@ infection.rate = 1/mu
 chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
 # 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 # However, I would consider it arbitrary too and then to be estimated. (Or look for data)
-miracidiae = 1000
+miracidiae = 40000
 l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d
 
 FOIs= chi*miracidiae #c*chi*miracidiae #Civitello uses 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-            FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate)
+            FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
+            lambda = cerc.prod.rate, m = cerc.mortality)
 
 ## vector of time steps
 #I have to stick to monthly time step as in the main module.
@@ -63,32 +71,33 @@ times <- 1:ndays
 ## initial conditions
 #M0 = 100
 pop.size=10000
-E0=0
+E0=10
 I0=0
 S0=pop.size - sum(E0, I0)
+C0=0
 #If densities: S0=1
 
 ## Start values for steady state
-xstart <- c(S = S0, E = E0, I = I0)
+xstart <- c(S = S0, E = E0, I = I0, C = C0)
 
 ## Solving
 out <-  lsoda(xstart, times, SEI, parms) #tra gli argomenti ha la mia funzione che definisce il sistema differenziale
 
 #Solving iteratively for different carring capacities
-# ks <- c(1000, 5000, 10000)
-# for(i in 1:3){
-#   parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
-#               FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate)
-#   assign(paste("out_", ks[i], sep = ""),
-#   as.data.frame(lsoda(xstart, times, SEI, parms)))
-# }
+ks <- c(1000, 5000, 10000, 20000)
+for(i in 1:length(ks)){
+  parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
+              FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
+              lambda = cerc.prod.rate, m = cerc.mortality)
+  assign(paste("out_", ks[i], sep = ""),
+  as.data.frame(lsoda(xstart, times, SEI, parms)))
+}
 
 
 ## Translate the output into a data.frame
 out2 <- as.data.frame(out)
 
 ## Plotting
-yname <- paste("Density of snails", expression(L^(-1)), sep=" ")
 TOT <- out2$S + out2$E + out2$I
 plot(out2$time, out2$S, col='blue', ylim=c(0, max(out[,-1])), type='l', xlab = "Time in days",
      ylab = yname) #Susceptibles
@@ -126,9 +135,121 @@ legend("topright",
        inset = c(0.1, 0.1))
 
 
-# plot(out_10000$time, out_10000$I, col='purple', type='l', xlab = "Time in days",
-#      ylab = yname) #Susceptibles
-# lines(out_1000$time, out_1000$I, col='blue', type='l', xlab = "Time in days",
-#       ylab = yname) #Susceptibles
-# lines(out_5000$time, out_5000$I, col='red', type='l', xlab = "Time in days",
-#       ylab = yname) #Susceptibles
+#Plotting if we run for different values of k
+#Infected
+plot(out_20000$time, out_20000$I, col='dark green', type='l', xlab = "Time in days",
+     ylab = "Infected snail population") 
+lines(out_10000$time, out_10000$I, col='purple', type='l', xlab = "Time in days",
+     ylab = "Infected snail population") 
+lines(out_1000$time, out_1000$I, col='blue', type='l', xlab = "Time in days",
+      ylab = "Infected snail population")
+lines(out_5000$time, out_5000$I, col='red', type='l', xlab = "Time in days",
+      ylab = "Infected snail population") 
+legend("topright", 
+       legend = c("k=20000", "k=10000", "k=5000", "k=1000"), 
+       col = c("dark green", "purple", "red", "blue"), 
+       pch = 20, 
+       bty = "n", 
+       pt.cex = 2, 
+       cex = 1.2, 
+       text.col = "black", 
+       horiz = F , 
+       inset = c(0.1, 0.1))
+
+#Total
+plot(out_20000$time, (out_20000$S + out_20000$E + out_20000$I), col='dark green', type='l', xlab = "Time in days",
+     ylab = "Total snail population", ylim = c(0, 20000)) 
+lines(out_10000$time, (out_10000$S + out_10000$E + out_10000$I), col='purple', type='l', xlab = "Time in days",
+     ylab = "Total snail population") 
+lines(out_1000$time, (out_1000$S + out_1000$E + out_1000$I), col='blue', type='l', xlab = "Time in days",
+      ylab = "Total snail population") #Susceptibles
+lines(out_5000$time, (out_5000$S + out_5000$E + out_5000$I), col='red', type='l', xlab = "Time in days",
+      ylab = "Total snail population") #Susceptibles
+legend("topright", 
+       legend = c("k=20000", "k=10000", "k=5000", "k=1000"), 
+       col = c("dark green", "purple", "red", "blue"), 
+       pch = 20, 
+       bty = "n", 
+       pt.cex = 2, 
+       cex = 1.2, 
+       text.col = "black", 
+       horiz = F , 
+       inset = c(0.1, 0.1))
+
+
+#Prevalence
+plot(out_20000$time, out_20000$I/(out_20000$S + out_20000$E + out_20000$I), col='dark green', type='l', xlab = "Time in days",
+     ylab = "Prevalence of infected snails", ylim = c(0, 1)) 
+lines(out_10000$time, out_10000$I/(out_10000$S + out_10000$E + out_10000$I), col='purple', type='l', xlab = "Time in days",
+     ylab = "Prevalence of infected snails", ylim = c(0, 1)) 
+lines(out_1000$time, out_1000$I/(out_1000$S + out_1000$E + out_1000$I), col='blue', type='l', xlab = "Time in days",
+      ylab = "Prevalence of infected snails") 
+lines(out_5000$time, out_5000$I/(out_5000$S + out_5000$E + out_5000$I), col='red', type='l', xlab = "Time in days",
+      ylab = "Prevalence of infected snails") 
+legend("topright", 
+       legend = c("k=20000", "k=10000", "k=5000", "k=1000"), 
+       col = c("dark green", "purple", "red", "blue"), 
+       pch = 20, 
+       bty = "n", 
+       pt.cex = 2, 
+       cex = 1.2, 
+       text.col = "black", 
+       horiz = F , 
+       inset = c(0.1, 0.1))
+
+#Cercariae
+plot(out_20000$time, out_20000$C, col='dark green', type='l', xlab = "Time in days",
+     ylab = "Cercarial output") 
+lines(out_10000$time, out_10000$C, col='purple', type='l', xlab = "Time in days",
+      ylab = "Cercarial output") 
+lines(out_1000$time, out_1000$C, col='blue', type='l', xlab = "Time in days",
+      ylab = "Cercarial output") 
+lines(out_5000$time, out_5000$C, col='red', type='l', xlab = "Time in days",
+      ylab = "Cercarial output") 
+legend("topright", 
+       legend = c("k=20000", "k=10000", "k=5000", "k=1000"), 
+       col = c("dark green", "purple", "red", "blue"), 
+       pch = 20, 
+       bty = "n", 
+       pt.cex = 2, 
+       cex = 1.2, 
+       text.col = "black", 
+       horiz = F , 
+       inset = c(0.1, 0.1))
+
+
+final_equil <- data.frame(k = ks,
+                          S = c(out_1000[180, "S"], out_5000[180, "S"], out_10000[180, "S"], out_20000[180, "S"]),
+                          E = c(out_1000[180, "E"], out_5000[180, "E"], out_10000[180, "E"], out_20000[180, "E"]),
+                          I = c(out_1000[180, "I"], out_5000[180, "I"], out_10000[180, "I"], out_20000[180, "I"]),
+                          C = c(out_1000[180, "C"], out_5000[180, "C"], out_10000[180, "C"], out_20000[180, "C"]))
+
+ggplot(final_equil, aes(x = k)) +
+  geom_line(aes(y=S), colour = "green", size=2) +
+  geom_line(aes(y=E), colour = "orange", size=2) +
+  geom_line(aes(y=I), colour = "red", size=2) +
+  geom_line(aes(y=E+I+S), size=2) +
+  scale_x_continuous(name = "Carrying capacity (k)",
+                     breaks = ks) +
+  scale_y_continuous(name = "Snail population size")
+
+ggplot(final_equil, aes(x=k)) + 
+  geom_line(aes(y=I/(S+E+I)), size = 2) +
+  scale_x_continuous(name = "Carrying capacity (k)",
+                     breaks = ks) +
+  scale_y_continuous(name = "Prevalence of infection in snails (fraction)",
+                     limits = c(0, 1))
+
+ggplot(final_equil, aes(x=k)) + 
+  geom_line(aes(y=C), size = 2) +
+  scale_x_continuous(name = "Carrying capacity (k)",
+                     breaks = ks) +
+  scale_y_continuous(name = "Cercarial production")
+ggplot(final_equil, aes(x=k)) + 
+  geom_line(aes(y=I), size = 2) +
+  scale_x_continuous(name = "Carrying capacity (k)",
+                     breaks = ks) +
+  scale_y_continuous(name = "Shedding snails")
+                          
+                          
+                          
