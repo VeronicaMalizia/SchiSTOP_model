@@ -41,6 +41,9 @@ vignettes/*.pdf
 # debug files
 *.txt
 
+# trash files
+*.tmp
+
 # Output and Plots folder
-Output
-Plots
+/Output/
+/Plots/
