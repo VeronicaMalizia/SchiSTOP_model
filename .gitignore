@@ -45,5 +45,5 @@ vignettes/*.pdf
 *.tmp
 
 # Output and Plots folder
-/Output/
+/Output*
 /Plots/

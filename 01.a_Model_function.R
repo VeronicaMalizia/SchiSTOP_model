@@ -1,13 +1,10 @@
 #############################
 #Author: Veronica Malizia
-#Date: 27/10/2021
+#Date: 22/06/2021
 #R version: 3.6.1
 
-#This version will generate a toy model, with human demography (aging/birth/deaths)
-#and basic transmission dynamics with a central reservoir.
-#Data required: 
-# 1. Initial cohort population from WORMSIM input file
-# 2. Death_probabilities from WHO App - South Africa
+#This script contains model specification and is called into the main script 01_First\model.R
+#
 #############################
 
 library(tidyverse)
@@ -18,7 +15,6 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-time.start <- Sys.time()
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
 registerDoParallel(cluster)
 
@@ -34,6 +30,7 @@ results <- foreach(k = 1:seeds,
                      #Initialize
                      pop <- cohort %>%
                        mutate(death_age = 150,
+                              rate = 0,
                               jw1 = 0,
                               jw2 = 0,
                               jw3 = 0,
@@ -41,15 +38,6 @@ results <- foreach(k = 1:seeds,
                               co = contributions0) #female worms
                      N <- nrow(pop)
                      SAC <- which(pop$age >= 5 & pop$age <= 15)
-                     
-                     #Set portion of population dying along the first year
-                     ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
-                     for(i in 1:nrow(pop)){
-                        if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
-                         death_month <- runif(1, 1, 12)
-                         pop$death_age[i] <- pop$age[i] + death_month/12
-                       }
-                     }
                      
                      true_prev <- c(0)
                      eggs_prev <- c(0)
@@ -75,13 +63,14 @@ results <- foreach(k = 1:seeds,
                        
                        #Births
                        #for now birth rate does not depend on age-specific female fertility
-                       births <- rpois(1, (birth_rate*(nrow(pop)/1000))/12)
+                       births <- birth_rate*(nrow(pop)/1000)/12
                        #new born
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5)),
                                     wp = rep(0, births),
-                                    Ind_sus = rgamma(1, shape = k_w, scale = 1/k_w),
+                                    Ind_sus = rgamma(births, shape = k_w, scale = 1/k_w),
                                     death_age = 150,
+                                    rate = rep(0, births),
                                     jw1 = rep(0, births),
                                     jw2 = rep(0, births),
                                     jw3 = rep(0, births),
@@ -96,17 +85,17 @@ results <- foreach(k = 1:seeds,
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
 
                          for(i in 1:nrow(pop)){
-                           # if(pop$sex[i]==0){
-                           #   if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
-                           #     death_month <- runif(1, 1, 12)
-                           #     pop$death_age[i] <- pop$age[i] + death_month/12
-                           #   }
-                           # }
-                           # if(pop$sex[i]==1){
+                           if(pop$sex[i]==0){
+                             if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
+                               death_month <- runif(1, 1, 12)
+                               pop$death_age[i] <- pop$age[i] + death_month/12
+                             }
+                           }
+                           if(pop$sex[i]==1){
                              if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
                                death_month <- runif(1, 1, 12)
                                pop$death_age[i] <- pop$age[i] + death_month/12
-                            # }
+                             }
                            }
                          }
                        }
@@ -118,12 +107,10 @@ results <- foreach(k = 1:seeds,
                        #Migration
                        #For now we do not account for age-specific emigration
                        lambda <- (emig_rate*(nrow(pop)/1000))/12
-                       emigrates <- rpois(1, lambda)
                        emig_age <- which(pop$age>5&pop$age<55)
-                       emigrated <- sample(emig_age, emigrates)
+                       emigrated <- sample(emig_age, lambda)
                        if(length(emigrated)>0)
                          pop <- pop[-emigrated,]
-                       #SCHISTOSIM from Sake works with population doubling every 25 years
 
                        #Update age, population size, SAC and cumulative exposure
                        pop$age <- pop$age + 1/12
@@ -138,48 +125,50 @@ results <- foreach(k = 1:seeds,
                        #The individual assumes new worms nw (FOI)
                        #and only a portion survives from the previous month
                        #One exposure rate per individual (based on age and ind. sus.)
-                       rate <- foi(l=cercariae, zeta, v, a=pop$age, is=pop$Ind_sus)
-                       pop$jw1 <- rpois(nrow(pop), rate/cum_exp) #First stage juveniles
-                       
-                       #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
-                       # if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                       #   for(i in 1:nrow(pop)){
-                       #     if(pop$age[i] >= mda$age.lo & pop$age[i] <= mda$age.hi){
-                       #       if(rbernoulli(1, mda$coverage)){ #it works in around 75% of the target pop
-                       #         pop$mw[i] <- round((1-mda$efficacy)*pop$mw[i])
-                       #         pop$fw[i] <- round((1-mda$efficacy)*pop$fw[i])
-                       #       }
-                       #     }
-                       #   }
-                       # }
-                       
-                       #Worms
+                       pop$rate <- foi(l=cercariae[t-1], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
+                       pop$jw1 <- rpois(nrow(pop), pop$rate) #First stage juveniles
+                       if(t < ext.foi$duration*12)
+                         pop$jw1 <- pop$jw1 + ext.foi$value
+                      
+                       #EGGS production (before updating worms)
                        #Worms' pairs (so mature at stage 4) produce eggs
-                       #Shall we consider insemination probability??
-                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
-                       #per each human host, juvenile worms at stage 3 are assigned with sex
-                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3) 
-                       pop$wp <- pop$wp - rbinom(nrow(pop), pop$wp, phi1) + new_pairs
-                       #From here we track worm pairs as units. Do not track individual male/female worms in this version
-                       
-                       eggs <- alpha*pop$wp #*exp(-z*pop$fw)
+                       #(Shall we consider insemination probability??)
+                       #eggs represents the expected egg load in a stool sample
+                       eggs <- alpha*pop$wp #*exp(-z*pop$fw) 
                        #Diagnosis 
                        pop$ec <- rnbinom(nrow(pop), size=k_e, mu=eggs) 
                        
-                       #Individual contributions 
-                       #Eggs released that will become miracidia and will infect snails
-                       #neglect contribution rate for now (set it to 1, to indicate no seasonal pattern)
-                       pop$co <- co_rate * eggs * Age_profile(pop$age)$y * pop$Ind_sus
-            
+                       #WORMS
+                       #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
+                       killed_worms <- 0
+                       if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
+                         treated <- sample(SAC, mda$coverage*length(SAC))
+                         killed_worms <- round(mda$efficacy*pop$wp[treated])
+                         pop$wp[treated] <- pop$wp[treated] - killed_worms
+                         #pop$cum_dwp[treated] <- pop$cum_dwp[treated] + killed_worms
+                       }
+                       
                        #Worms are updated for the next month with:
                        #the newborn(juveniles), which will be considered mature the next month
                        #also with survival portion of males and females worms from the previous month
+                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
+                       #per each human host, juvenile worms at stage 3 are assigned with sex
+                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
+                       new_pairs <- pmin(malesnw, pop$jw3)
+                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
+                       pop$wp <- pop$wp - dying_pairs + new_pairs
+                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
                        pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
                        pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
                        
-                       #Reservoir/cloud
-                       #Miracidiae intake at step t by the reservoir
+                       
+                       #Individual CONTRIBUTIONS 
+                       #Eggs released that will become miracidia and will infect snails
+                       #neglect contribution rate for now (set it to 1, to indicate no seasonal pattern)
+                       pop$co <- co_rate * (eggs*24) * (gr_feces*30) * Age_profile(pop$age)$y * pop$Ind_sus
+                       
+                       #RESERVOIR
+                       #Miracidiae intake at step t (thus monthly) by the reservoir
                        m_in[t] <- sum(pop$co)
                        
                        #first version to explicitly model snails population
@@ -188,7 +177,8 @@ results <- foreach(k = 1:seeds,
                        #we assume particles not infecting humans do not survive from the previous month
                        
                        #Call parameters and initial conditions
-                       FOIs= chi*m_in[t-1] #c*chi*miracidiae #Civitello uses a cumulative factor of 0.01
+                       #SEIC is at daily time step
+                       FOIs= chi*m_in[t-1]/30 #c*chi*miracidiae #Civitello uses a cumulative factor of 0.01
                        parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
                                    FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
                                    lambda = cerc.prod.rate, m = cerc.mortality)
@@ -218,11 +208,10 @@ results <- foreach(k = 1:seeds,
                        
                        #Cercarial production 
                        cercariae[t] <- out2$C[nrow(out2)]
-                       #cloud <- hyp_sat(alpha=a, beta=b, m_in[t - 1])
-
-                       sink("Find_bug.txt", append=TRUE)
-                       cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
-                       sink()
+                       
+                       # sink("Find_bug.txt", append=TRUE)
+                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
+                       # sink()
                        
                        #Summary statistics
                        true_prev[t] <- length(which(pop$wp>0))/nrow(pop)
@@ -233,9 +222,9 @@ results <- foreach(k = 1:seeds,
                        tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
                        
                        #Save annual individual output
-                       if(t %in% seq(12, (T*12), 10*12)){ #Decembers, every 10 years
+                       if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
                          ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, wp, ec) %>%
+                                           select(pop, age, sex, rate, wp, ec) %>%
                                            mutate(ID = 1:nrow(pop),
                                                   time = t/12,
                                                   seed = k))
@@ -248,7 +237,7 @@ results <- foreach(k = 1:seeds,
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
                                    pop_size = N,
-                                   miracidiae = m_in,
+                                   miracidiae = m_in/30, #to have a daily output
                                    cercariae = cercariae,
                                    true_prev = true_prev,
                                    eggs_prev = eggs_prev,
@@ -259,5 +248,4 @@ results <- foreach(k = 1:seeds,
                    }
 
 stopCluster(cluster)
-time.end <- Sys.time()
-time.end - time.start
+

@@ -20,11 +20,12 @@ SEI <- function(t, x, parms) {
         #Logistic growth
         #For population growing with limited amount of resources
         beta <- beta0*(1-N/k) #Infected snails do not reproduce
-
+        FOIsnails <- FOIs/N
+        
         #Equations
-        dS <- beta*(S+E) - (v+(FOIs/N))*S #susceptible
-        dE <- (FOIs/N)*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
-        dI <- tau*E - (v+v2)*I  #Infected: larvae in the snail are mature and snails shed cercariae
+        dS <- beta*(S+E) - (v+(FOIsnails))*S #susceptible
+        dE <- (FOIsnails)*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
+        dI <- tau*E - v2*I  #Infected: larvae in the snail are mature and snails shed cercariae
         dC <- lambda*I - m*C #Cercariae (output)
         res <- c(dS, dE, dI, dC)
         list(res)
@@ -32,20 +33,21 @@ SEI <- function(t, x, parms) {
 }
 
 #Checks:
-## 1. N does not go towards k, because with respect to a normal logistic growth function (beta*(1-N/k)*N)
+## 1. N is not supposed go asymptotically move towards k, because respectively to a normal logistic growth function (beta*(1-N/k)*N)
 ##    here only S + E contribute to the reproduction. Moreover, I has an extra mortality factor.
 ##    The population dynamics are different than a normal logistic growth population.
 ##
-## 2. Does (and if so why) the snail infection prevalence is not affected by the choice of k? (see plotting code at the end of the document)
+## 2. Is (and if so why) the snail infection prevalence affected by the choice of k? (see plotting code at the end of the document)
 
 ## Parameters
 #ENV = 500 #L, total volume of water
-max.reproduction.rate = 0.1 #d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
-carrying.capacity = 1000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
+max.reproduction.rate = 1 #d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
+carrying.capacity = 20000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
 lifespan = 100 #days, Civitello #Gurarie: about 3 months
+lifespan.infected = 30 #days, Gurarie
 mortality.rate = 1/lifespan 
 #lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
-mortality.rate.infection = 0.04 #d^-1 from Civitello #1/((1-lifespan.reduction)*lifespan)
+mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
 #c = 2 #contact rate for snails. This should also be a calibrating parameter. 
@@ -53,7 +55,7 @@ infection.rate = 1/mu
 chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
 # 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 # However, I would consider it arbitrary too and then to be estimated. (Or look for data)
-miracidiae = 40000
+miracidiae = 10000 #fixed monthly intake
 l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d
@@ -80,8 +82,11 @@ C0=0
 ## Start values for steady state
 xstart <- c(S = S0, E = E0, I = I0, C = C0)
 
-## Solving
+## Solving single run
+# solve ODEs
 out <-  lsoda(xstart, times, SEI, parms) #tra gli argomenti ha la mia funzione che definisce il sistema differenziale
+# Translate the output into a data.frame
+out2 <- as.data.frame(out)
 
 #Solving iteratively for different carring capacities
 ks <- c(1000, 5000, 10000, 20000)
@@ -93,13 +98,10 @@ for(i in 1:length(ks)){
   as.data.frame(lsoda(xstart, times, SEI, parms)))
 }
 
-
-## Translate the output into a data.frame
-out2 <- as.data.frame(out)
-
 ## Plotting
 TOT <- out2$S + out2$E + out2$I
-plot(out2$time, out2$S, col='blue', ylim=c(0, max(out[,-1])), type='l', xlab = "Time in days",
+yname <- "Abundances of snails"
+plot(out2$time, out2$S, col='blue', ylim=c(0, max(out[,2:4])), type='l', xlab = "Time in days",
      ylab = yname) #Susceptibles
 lines(out2$time, out2$E, col='dark green') #Exposed (infected but not shedding larvae)
 lines(out2$time, out2$I, col='red') #Infected (larvae are mature and snails excrete cercariae)
@@ -117,11 +119,13 @@ legend("topright",
 
 plot(out2$time, TOT, type='l', 
      xlab = "Time in days", ylab = "Total snail population size") 
+plot(out2$time, out2$C, type='l', 
+     xlab = "Time in days", ylab = "Cercarial output") 
 
 #Plotting prevalence
 plot(out2$time, out2$I/TOT, ylim=c(0, 1), type='l', 
      xlab = "Time in days", ylab = "Prevalence of infection in snails") 
-lines(out2$time, (out2$I+out2$E)/out2$N, ylim=c(0, 1), type='l', col='violet',
+lines(out2$time, (out2$I+out2$E)/TOT, ylim=c(0, 1), type='l', col='violet',
      xlab = "Time in days", ylab = "Prevalence of infection in snails")
 legend("topright", 
        legend = c("I/N", "(E+I)/N"), 

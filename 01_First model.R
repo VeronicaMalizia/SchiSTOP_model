@@ -1,53 +1,45 @@
 #############################
 #Author: Veronica Malizia
-#Date: 27/12/2021
+#Date: 22/06/2021
 #R version: 3.6.1
 
-#This script runs a toy model from R source, with human demography (aging/birth/deaths)
-#and basic transmission dynamics with a central reservoir.
+#This script runs the model from R source, with human demography (aging/birth/deaths)
+#and transmission dynamics with a central reservoir, consisting of snail population dynamcis.
 #Code for plotting included.
 #Data required: 
-# 1. Initial cohort population from WORMSIM input file
+# 1. Initial age distribution, after equilibrium is reached in 00_Demography_eq.R
 # 2. Death_probabilities from WHO App - South Africa
 #############################
 rm(list = ls())
 
 .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
-source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
-setwd(source.dir)
 library(tidyverse)
 library(readxl)
 library(ggridges)
 library(foreach)
 library(doParallel)
-
+library(patchwork)
+`%!in%` <- Negate(`%in%`)
+geom_mean <- function(x){exp(mean(log(x)))}
 ################
 #Initial population
 #Starting with the initial cohort
 ################
-
-pop0 <- read_xlsx("Initial population_Uganda.xlsx")
-death_rates <- read.csv("death_rates_Uganda_2019.csv")
+source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
+setwd(source.dir)
+#Load age distribution at equilibrium
+load("Equilibrium_age_distribution.RData") #the object is called "to.save"
+#death_rates <- read.csv("death_rates_Uganda_2019.csv")
 prob_death <- read.csv("prob_death_Uganda_2019.csv")
-le <- 60 #Life expectancy (Uganda)
-sex.ratio <- 94.6 #number of males per 100 females. Uganda, 2014.
-N <- 1000 #population size
-N_males <- round((sex.ratio/(sex.ratio + 100))*N)
-N_females <- N - N_males
 
-cohort <- tibble(age = round(c(runif(round(pop0$N_males[1]*N_males), 0, pop0$Age_limit[1]),
-                               runif(round(pop0$N_females[1]*N_females), 0, pop0$Age_limit[1]))),
-                 sex = c(rep(0, round(pop0$N_males[1]*N_males)), 
-                         rep(1, round(pop0$N_females[1]*N_females))))
 #0=male, 1=female
-for(i in 2:nrow(pop0)){
-  males <- round(pop0$N_males[i]*N_males)
-  females <- round(pop0$N_females[i]*N_females)
-  tmp <- tibble(age = round(c(runif(males, pop0$Age_limit[i-1]+1, pop0$Age_limit[i]),
-                              runif(females, pop0$Age_limit[i-1]+1, pop0$Age_limit[i]))),
-                sex = c(rep(0, males), rep(1, females)))
+cohort <- c()
+for(i in 1:nrow(to.save)){
+  tmp <- tibble(age = rep(to.save$age[i], round(to.save$n[i])))
   cohort <- rbind(cohort, tmp) 
 }
+cohort <- cohort %>%
+  mutate(sex = as.numeric(rbernoulli(nrow(cohort), 0.5)))
 
 hist(cohort$age)
 table(cohort$sex)
@@ -55,66 +47,6 @@ table(cohort$sex)
 # ggplot(cohort,aes(x=age,group=as.factor(sex),fill= as.factor(sex)))+
 #   geom_histogram(position="dodge",binwidth=5)+
 #   theme_bw()
-
-##Parameters
-T <- 100 #number of years
-seeds <- 10
-#monthly time step
-birth_rate <- 35.7 #35.7 is crude annual birth rate Uganda 2021, 34.8 for Sub-Saharan Africa (per 1000 individuals)
-#-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
-emig_rate <- 10 #1.09 #This approximates the emigration rate from rural villages (2021) (per 1000 individuals)
-#max.pop <- 1000
-k_w <- 0.15 #Anderson, Turner (2016)
-v <- 1 #Transmission probability
-zeta <- 0.9 #overall exposure rate (check the monthly definition)
-Tw <- 5 #Average worm's lifespan in host in months (years)(Anderson and May 1985a)
-phi1 <- 1-exp(-1/(Tw*12)) #(monthly) dying probability of worms within the host
-#phi2 <- exp(-1/(xx*12)) #survival probability of particles in the reservoir
-alpha <- 0.28 #expected number of eggs per sample per worm pair (Sake 1996)
-z <- 0.0007
-k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.22 Sake1992)
-co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
-#expanding_factor <- 1 #Multiplicative factor of miracidia in snails. (i.e. N.of cercariae released)
-mda <- tibble(age.lo = 5,
-             age.hi = 15,
-             start = 100,
-             end = 130,
-             frequency = 1, #annual
-             coverage = 0.75,
-             efficacy = 1)
-
-##Parameters for ODEs model for snails (These rates are daily)
-max.reproduction.rate = 0.1 #d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
-carrying.capacity = 1000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
-lifespan = 100 #days, Civitello #Gurarie: about 3 months
-mortality.rate = 1/lifespan 
-#lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
-mortality.rate.infection = 0.04 #d^-1 from Civitello #1/((1-lifespan.reduction)*lifespan)
-mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
-infection.rate = 1/mu 
-#c = 2 #contact rate for snails. This should also be a calibrating parameter. 
-#For now we assume that snails get in contact with all free-living miracidiae. I think it cannot be >1
-chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
-# 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
-# However, I would consider it arbitrary too and then to be estimated. (Or look for data)
-l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
-cerc.prod.rate = 50 #1/d per infected snail
-cerc.mortality = 1 #1/d 
-
-#Population is initialized with a given worms distribution
-#(Initial/external Force of Infection)
-w0= rnbinom(nrow(cohort), size=k_w, mu=6)
-#Compute initial worms' pair
-mw0 <- rbinom(length(w0), w0, 0.5) #male worms
-fw0 <- w0-mw0 #female worms
-cohort <- cohort %>%
-  mutate(wp = pmin(mw0, fw0),
-         Ind_sus = rgamma(nrow(cohort), shape = k_w, scale = 1/k_w))
-
-ggplot(cohort,aes(x=wp))+
-  geom_histogram(binwidth=5)+ theme_bw()
-hist(cohort$Ind_sus)
-hist(w0)
 
 #Functions (they can be a separate script)
 age_groups <- c(0, 5, 10, 16, 200)
@@ -138,7 +70,7 @@ exp_sat <- function(a, b, c, x){ #Exponential saturating function
 }
 SEI <- function(t, x, parms) {    
   with(as.list(c(parms, x)), {
-    N <- S+E+I #is better to work with densities?
+    N <- S+E+I #is it better to work with densities?
     #Logistic growth
     #For population growing with limited amount of resources
     beta <- beta0*(1-N/k) #Infected snails do not reproduce
@@ -147,16 +79,91 @@ SEI <- function(t, x, parms) {
     #Equations
     dS <- beta*(S+E) - (v+FOIsnails)*S #susceptible
     dE <- FOIsnails*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
-    dI <- tau*E - (v+v2)*I  #Infected: larvae in the snail are mature and snails shed cercariae
+    dI <- tau*E - v2*I  #Infected: larvae in the snail are mature and snails shed cercariae
     dC <- lambda*I - m*C #Cercariae (output)
     res <- c(dS, dE, dI, dC)
     list(res)
   })
 }
 
+##Parameters
+#monthly time step
+birth_rate <- 36.5 #is crude annual birth rate Uganda 2019 (same y of available lifetables), 34.8 for Sub-Saharan Africa (per 1000 individuals)
+#-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
+emig_rate <- 20 #This is calibrated to have constant population
+#max.pop <- 1000
+k_w <- 0.30 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
+v <- 1 #Transmission probability
+zeta <- 0.03 #overall exposure rate (check the monthly definition) (chaning accordingly to endem. scenario)
+ext.foi <- tibble(value = 3,
+                  duration = 5) #years
+
+Tw <- 60 #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
+phi1 <- 1-exp(-1/Tw) #(monthly) exponential dying probability of worms within the host
+
+alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
+z <- 0.0007
+k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
+co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
+gr_feces <- 150 #Average gram of feces daily excreted per individual 
+#expanding_factor <- 1 #Multiplicative factor of miracidia in snails. (i.e. N.of cercariae released)
+mda <- tibble(age.lo = 5,
+             age.hi = 15,
+             start = 70, #70,
+             end = 80, #80,
+             frequency = 1, #annual
+             coverage = 0.75,
+             efficacy = 0.85)
+
+##Parameters for ODEs model for snails (These rates are daily)
+max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
+carrying.capacity = 20000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
+lifespan = 100 #days, Civitello #Gurarie: about 3 months
+lifespan.infected = 30 #days, Gurarie
+mortality.rate = 1/lifespan 
+#lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
+mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
+mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
+infection.rate = 1/mu 
+#c = 2 #contact rate for snails. This should also be a calibrating parameter. 
+#For now we assume that snails get in contact with all free-living miracidiae. I think it cannot be >1
+chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
+# 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
+# However, I would consider it arbitrary too and then to be estimated. (Or look for data)
+l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
+cerc.prod.rate = 50 #1/d per infected snail
+cerc.mortality = 1 #1/d 
+
+# #Option 1.
+# #Population is initialized with a given worms distribution
+# #(Initial/external Force of Infection)
+# w0= rnbinom(nrow(cohort), size=k_w, mu=6)
+# #Compute initial worms' pair
+# mw0 <- rbinom(length(w0), w0, 0.5) #male worms
+# fw0 <- w0-mw0 #female worms
+# cohort <- cohort %>%
+#   mutate(wp = pmin(mw0, fw0),
+#          Ind_sus = rgamma(nrow(cohort), shape = k_w, scale = 1/k_w))
+# 
+# ggplot(cohort,aes(x=wp))+
+#   geom_histogram(binwidth=5)+ theme_bw()
+# hist(cohort$Ind_sus)
+# hist(w0)
+
+#Option 2.
+# Worms are initialized with an artificial FOI (5/12 worm pairs per person per month)
+cohort <- cohort %>%
+  mutate(wp = 5,
+         Ind_sus = rgamma(nrow(cohort), shape = k_w, scale = 1/k_w))
+
 #Create initial cloud
-eggs0 <- alpha*(pmin(mw0, fw0)) #*exp(-z*fw0)
-contributions0 <- eggs0 * Age_profile(cohort$age)$y * cohort$Ind_sus
+# #For option 1.
+# eggs0 <- alpha*(pmin(mw0, fw0)) #*exp(-z*fw0)
+# contributions0 <- eggs0 * Age_profile(cohort$age)$y * cohort$Ind_sus
+#For option 2.
+eggs0 <- 0
+contributions0 <- 0
+
 #Initial cumulative exposure
 cum_exp <- sum(Age_profile(cohort$age)$y * cohort$Ind_sus) 
 SAC <- which(cohort$age >= 5 & cohort$age <= 15)
@@ -169,15 +176,27 @@ S0=snail.pop - sum(E0, I0)
 C0=0
 #If densities: S0=1
 
+T <- 200 #number of years
+seeds <- 10
+
 #Run the model
+time.start <- Sys.time()
 source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
+time.end <- Sys.time()
+time.end - time.start
 
 #Population-level results
 #Collating results (only if seeds>1)
 res <- bind_rows(results)
 
 #Average results over simulations
+
+#Check if there are faded out runs
+dead.seeds <- unique(res$seed[which
+                              (res$true_prev==0 & res$time!=1)])
+
 avg_res <- res %>%
+  filter(seed %!in% dead.seeds) %>%
   group_by(time) %>%
   summarise(N = mean(pop_size),
             miracidiae = mean(miracidiae),
@@ -216,16 +235,18 @@ Fig <- ggplot(res) +
 
 Fig
 
+Fig +
+  coord_cartesian(xlim=c(500, 1000)) 
+
 #Saving image
-tiff("Plots/Prevalence_SEIversion.tif", width=7, height=6, units = "in", res = 300)
+tiff("Plots/Prevalence_low.tif", width=7, height=6, units = "in", res = 300)
 Fig
 dev.off()
 
-
 #PLot prevalence of infected patent snails
-tiff("Plots/Prevalence_snail_SEIversion.tif", width=7, height=6, units = "in", res = 300)
-ggplot(res) +
-  geom_line(data=avg_res, aes(x=time, y=snail_prev)) +
+tiff("Plots/Prevalence_snail_low.tif", width=7, height=6, units = "in", res = 300)
+ggplot(avg_res) +
+  geom_line(aes(x=time, y=snail_prev)) +
   scale_y_continuous(name = "Prevalence of infected snails (fraction)",
                      breaks = seq(0, 1, 0.2),
                      limits = c(0, 1),
@@ -253,8 +274,8 @@ ggplot(res) +
   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
   scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 10000, 1000),
-                     #limits = c(0, 1500),
+                     breaks = seq(0, 10000, 500),
+                     limits = c(0, 2000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [months]",
                      #breaks = seq(0, 10000, 500),
@@ -265,10 +286,11 @@ ggplot(res) +
 dev.off()
 
 #Plot cercariae and miracidiae in the environmental reservoir
+tiff(file.path(source.dir, "/Plots/Cercariae_moderate.tif"), width=7, height=6, units = "in", res = 300)
 ggplot(res) +
   geom_line(aes(x=time, y=cercariae, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=cercariae), size=1) +
-  scale_y_continuous(name = "Environmental reservoir (particles)",
+  scale_y_continuous(name = "Environmental reservoir (cercariae)",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 1500),
                      expand = c(0, 0)) +
@@ -276,7 +298,9 @@ ggplot(res) +
                      limits = c(0, T*12),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
+dev.off()
 
+tiff(file.path(source.dir, "/Plots/Miracidiae_low.tif"), width=7, height=6, units = "in", res = 300)
 ggplot(res) +
   geom_line(aes(x=time, y=miracidiae, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(x=time, y=miracidiae), size=1) +
@@ -288,9 +312,10 @@ ggplot(res) +
                      limits = c(0, T*12),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
+dev.off()
 
 ggplot(avg_res) +
-  geom_line(aes(x=miracidiae, y=cercariae), size=1) +
+  geom_point(aes(x=miracidiae, y=cercariae), size=2, alpha=0.5) +
   scale_y_continuous(name = "Total output of cercariae",
                      #breaks = seq(0, 10000, 1000),
                      #limits = c(0, 10000),
@@ -308,18 +333,21 @@ data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all
             bind_rows                                             # Combine data sets into one
 #Aggregate by age groups
 #Filter one year of interest
-year <- 51
+unique(data_all$time) #individual output contains time in years
+years <- c(51, 81, 101, 181)
 age_out <- data_all %>%
-  filter(time==year) %>%
+  filter(time %in% years) %>%
+  filter(seed %!in% dead.seeds) %>%
   mutate(age_group = case_when(age<=1 ~ "0_1",
                                age>1 & age<=5 ~ "1_5",
                                age>5 & age<=15 ~ "5_15",
                                age>15 & age<=30 ~ "15_30",
                                age>30 & age<=50 ~ "30_50",
-                               age>50 ~ "50_90")) 
-  group_by(seed, age_group, sex) %>%
-  summarise(ec = mean(ec*24), #means over individuals of that sex-age group
-            wp = mean(wp))
+                               age>50 ~ "50_90")) %>% 
+  group_by(seed, time, age_group, sex) %>%
+  summarise(epg = geom_mean(ec*24+1), #means over individuals of that sex-age group
+            wp = mean(wp),
+            rate = mean(rate))
   
 age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "1_5",
@@ -328,26 +356,50 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "30_50",
                                                           "50_90"))
 #Eggs by age
-ggplot(age_out)+
-  geom_boxplot(aes(x=age_group, y=ec), alpha = 0.3) +
-  facet_wrap(~ sex) +
-  scale_y_continuous(name = "Observed egg counts (epg)",
+eggs <- ggplot(age_out)+
+  geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3) +
+  facet_wrap(~ time, ncol = 4) +
+  scale_y_continuous(name = "Observed egg counts (epg) \n",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 200000),
                      expand = c(0, 0)) +
-  scale_x_discrete(name = "Age [years]") +
-  expand_limits(x = 0,y = 0)
+  scale_x_discrete(name = " ") +
+  expand_limits(x = 0,y = 0) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 #Intensity by age
-ggplot(age_out)+
+worms <- ggplot(age_out)+
   geom_boxplot(aes(x=age_group, y=wp), alpha = 0.3) +
-  facet_wrap(~ sex) +
-  scale_y_continuous(name = "Average worm load (pairs)",
+  facet_wrap(~ time, ncol = 4) +
+  scale_y_continuous(name = "Average worm load (pairs) \n",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 200000),
                      expand = c(0, 0)) +
-  scale_x_discrete(name = "Age [years]") +
-  expand_limits(x = 0,y = 0)
+  scale_x_discrete(name = " ") +
+  expand_limits(x = 0,y = 0) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+#Establishment rate by age
+rate <- ggplot(age_out)+
+  geom_boxplot(aes(x=age_group, y=rate), alpha = 0.3) +
+  facet_wrap(~ time, ncol = 4) + #scales = "free_y", 
+  scale_y_continuous(name = "Parasite establishment rate \n",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0, 200000),
+                     expand = c(0, 0)) +
+  scale_x_discrete(name = "\n Age [years]") +
+  expand_limits(x = 0,y = 0) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+tiff(file.path(source.dir, "/Plots/Boxplots_moderate.tif"), width=9, height=8, units = "in", res = 300)
+eggs / worms / rate
+dev.off()
+
+#Show average worm pairs burden per person
+age_out %>% 
+  filter(time==51) %>%
+  group_by(time) %>%
+  summarise(avg_wp = mean(wp))
 
 ##Age distribution by time
 #https://r-charts.com/distribution/ggridges/
