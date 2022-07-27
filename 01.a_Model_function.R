@@ -1,6 +1,6 @@
 #############################
 #Author: Veronica Malizia
-#Date: 22/06/2021
+#Date: 27/07/2021
 #R version: 3.6.1
 
 #This script contains model specification and is called into the main script 01_First\model.R
@@ -117,7 +117,7 @@ results <- foreach(k = 1:seeds,
                        N[t] <- nrow(pop)
                        SAC <- which(pop$age >= 5 & pop$age <= 15)
                        
-                       cum_exp <- sum(Age_profile(pop$age)$y*pop$Ind_sus) #Cumulative exposure
+                       cum_exp <- sum(Age_profile_exp(pop$age)$y*pop$Ind_sus) #Cumulative exposure
                        
                        #Parasitology (vectorised)
                        
@@ -125,7 +125,7 @@ results <- foreach(k = 1:seeds,
                        #The individual assumes new worms nw (FOI)
                        #and only a portion survives from the previous month
                        #One exposure rate per individual (based on age and ind. sus.)
-                       pop$rate <- foi(l=cercariae[t-1], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
+                       pop$rate <- FOIh(l=cercariae[t-1], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
                        pop$jw1 <- rpois(nrow(pop), pop$rate) #First stage juveniles
                        if(t < ext.foi$duration*12)
                          pop$jw1 <- pop$jw1 + ext.foi$value
@@ -133,10 +133,12 @@ results <- foreach(k = 1:seeds,
                        #EGGS production (before updating worms)
                        #Worms' pairs (so mature at stage 4) produce eggs
                        #(Shall we consider insemination probability??)
-                       #eggs represents the expected egg load in a stool sample
-                       eggs <- alpha*pop$wp #*exp(-z*pop$fw) 
+                       #eggs is the daily egg amount passed to the intestine
+                       eggs <- eggs_prod*pop$wp
                        #Diagnosis 
-                       pop$ec <- rnbinom(nrow(pop), size=k_e, mu=eggs) 
+                       #mu represents the expected egg load in a stool sample
+                       mu <- alpha*pop$wp #*exp(-z*pop$fw) 
+                       pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu) 
                        
                        #WORMS
                        #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
@@ -163,22 +165,20 @@ results <- foreach(k = 1:seeds,
                        
                        
                        #Individual CONTRIBUTIONS 
-                       #Eggs released that will become miracidia and will infect snails
-                       #neglect contribution rate for now (set it to 1, to indicate no seasonal pattern)
-                       pop$co <- co_rate * (eggs*24) * (gr_feces*30) * Age_profile(pop$age)$y * pop$Ind_sus
+                       #Eggs released (daily quantity, since it will enter the SEIC system) that will become miracidiae and will infect snails
+                       pop$co <- eggs * Age_profile_contr(pop$age) * pop$Ind_sus
                        
                        #RESERVOIR
-                       #Miracidiae intake at step t (thus monthly) by the reservoir
+                       #Miracidiae intake at step t by the reservoir
                        m_in[t] <- sum(pop$co)
                        
-                       #first version to explicitly model snails population
                        #Run snails ODEs model
                        #in the final reservoir we have the output of cercariae
                        #we assume particles not infecting humans do not survive from the previous month
                        
                        #Call parameters and initial conditions
                        #SEIC is at daily time step
-                       FOIs= chi*m_in[t-1]/30 #c*chi*miracidiae #Civitello uses a cumulative factor of 0.01
+                       FOIs= chi*m_in[t] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
                        parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
                                    FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
                                    lambda = cerc.prod.rate, m = cerc.mortality)
@@ -200,7 +200,7 @@ results <- foreach(k = 1:seeds,
                        ## Translate the output into a data.frame
                        out2 <- as.data.frame(out)
 
-                       #Saving results for next simulation
+                       #Saving results at t=30, to be saved as input of the next simulation
                        newstart <- c(out2$S[nrow(out2)],
                                      out2$E[nrow(out2)],
                                      out2$I[nrow(out2)],

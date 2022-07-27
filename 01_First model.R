@@ -1,6 +1,6 @@
 #############################
 #Author: Veronica Malizia
-#Date: 22/06/2021
+#Date: 27/07/2021
 #R version: 3.6.1
 
 #This script runs the model from R source, with human demography (aging/birth/deaths)
@@ -21,6 +21,7 @@ library(doParallel)
 library(patchwork)
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
+ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
 #Initial population
 #Starting with the initial cohort
@@ -49,15 +50,23 @@ table(cohort$sex)
 #   theme_bw()
 
 #Functions (they can be a separate script)
-age_groups <- c(0, 5, 10, 16, 200)
-exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06) #These should reflect a moderate adult burden setting
-Age_profile <- function(a){
-  approx(x=age_groups, y=exposure_rates, xout=c(a), method = "constant")
+age_groups <- c(0, 10, 20, 200)
+exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure rates (activity/person/day) 
+Age_profile_exp <- function(a){
+  approx(x=age_groups, y=exposure_rates, xout=c(a), method = "linear")
 }
-plot(approx(x=age_groups, y=exposure_rates, method = "constant"), xlim = c(0, 80), type = 'l', xlab = "Age", ylab = "Relative exposure rate")
-lines(approx(x=age_groups, y=c(0.01, 0.61, 1, 0.12, 0.12), method = "constant"), xlim = c(0, 80), type = 'l', col='red')
-foi <- function(l, zeta, v, a, is){
-  Rel_ex <- Age_profile(a)$y * is
+plot(approx(x=age_groups, y=exposure_rates, method = "linear"), xlim = c(0, 80), 
+     ylim = c(0, 1), type = 'l', xlab = "Age", ylab = "Relative exposure rate")
+#lines(approx(x=age_groups, y=c(0.01, 0.61, 1, 0.12, 0.12), method = "constant"), xlim = c(0, 80), type = 'l', col='red')
+Age_profile_contr <- function(a){
+  if(a < 10)
+    y <- 0.1*a
+  else
+    y <- 1
+  return(y)
+}
+FOIh <- function(l, zeta, v, a, is){
+  Rel_ex <- Age_profile_exp(a)$y * is
   return(l * zeta * v * Rel_ex)
 }
 hyp_sat <- function(alpha, beta, w){ #Hyperbolic saturating function 
@@ -92,9 +101,9 @@ birth_rate <- 36.5 #is crude annual birth rate Uganda 2019 (same y of available 
 #-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
 emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
-k_w <- 0.30 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
+k_w <- 0.3 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.03 #overall exposure rate (check the monthly definition) (chaning accordingly to endem. scenario)
+zeta <- 0.003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 3,
                   duration = 5) #years
 
@@ -102,11 +111,10 @@ Tw <- 60 #Average worm's lifespan in host in months (months)(40 m Sake) (5 years
 phi1 <- 1-exp(-1/Tw) #(monthly) exponential dying probability of worms within the host
 
 alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
+eggs_prod <- 140 #daily egg production per worm pair, passed to the intestine
 z <- 0.0007
 k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
-co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
-gr_feces <- 150 #Average gram of feces daily excreted per individual 
-#expanding_factor <- 1 #Multiplicative factor of miracidia in snails. (i.e. N.of cercariae released)
+#co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
 mda <- tibble(age.lo = 5,
              age.hi = 15,
              start = 70, #70,
@@ -165,7 +173,7 @@ eggs0 <- 0
 contributions0 <- 0
 
 #Initial cumulative exposure
-cum_exp <- sum(Age_profile(cohort$age)$y * cohort$Ind_sus) 
+cum_exp <- sum(Age_profile_exp(cohort$age)$y * cohort$Ind_sus) 
 SAC <- which(cohort$age >= 5 & cohort$age <= 15)
 
 #Snail population is initialized
@@ -189,7 +197,7 @@ time.end - time.start
 #Collating results (only if seeds>1)
 res <- bind_rows(results)
 
-#Average results over simulations
+#Average results over stochastic simulations
 
 #Check if there are faded out runs
 dead.seeds <- unique(res$seed[which
@@ -257,33 +265,15 @@ ggplot(avg_res) +
   expand_limits(x = 0,y = 0)
 dev.off()
 
-ggplot(res) +
-  geom_line(aes(x=time, y=inf_snail, group = seed), color = "purple", alpha = 0.3) +
-  geom_line(aes(x=time, y=tot_snail, group = seed), color = "brown", alpha = 0.3) +
-  scale_y_continuous(name = "Abundance of snails",
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [Months]",
-                     #limits = c(0, 1200),
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0)
-
-#Plot population size
-tiff(file.path(source.dir, "/Plots/Pop_size_migration.tif"), width=7, height=6, units = "in", res = 300)
-
-ggplot(res) +
-  geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=N), size=1) +
-  scale_y_continuous(name = "Population size (counts)",
-                     breaks = seq(0, 10000, 500),
-                     limits = c(0, 2000),
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [months]",
-                     #breaks = seq(0, 10000, 500),
-                     limits = c(0, (T*12)+12),
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0)
-
-dev.off()
+# ggplot(res) +
+#   geom_line(aes(x=time, y=inf_snail, group = seed), color = "purple", alpha = 0.3) +
+#   geom_line(aes(x=time, y=tot_snail, group = seed), color = "brown", alpha = 0.3) +
+#   scale_y_continuous(name = "Abundance of snails",
+#                      expand = c(0, 0)) +
+#   scale_x_continuous(name = "Time [Months]",
+#                      #limits = c(0, 1200),
+#                      expand = c(0, 0)) +
+#   expand_limits(x = 0,y = 0)
 
 #Plot cercariae and miracidiae in the environmental reservoir
 tiff(file.path(source.dir, "/Plots/Cercariae_moderate.tif"), width=7, height=6, units = "in", res = 300)
@@ -395,40 +385,60 @@ tiff(file.path(source.dir, "/Plots/Boxplots_moderate.tif"), width=9, height=8, u
 eggs / worms / rate
 dev.off()
 
-#Show average worm pairs burden per person
+##Print average worm pairs burden per person
 age_out %>% 
-  filter(time==51) %>%
+  filter(time==181) %>%
   group_by(time) %>%
   summarise(avg_wp = mean(wp))
 
-##Age distribution by time
-#https://r-charts.com/distribution/ggridges/
-cohort_plot_age <- cohort %>%
-  select(age, sex, wp) %>%
-  mutate(ec = NA,
-         ID = 1:nrow(cohort),
-         time = 0,
-         seed = NA)
-bind_rows(cohort_plot_age,
-  data_all %>%
-  filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
-  ggplot(aes(x=round(age))) +
-  geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5, 
-                 fill="white", position = 'dodge') +
-  #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
-  guides(colour=guide_legend(title="Simulation seed")) +
-  scale_color_grey() +
-  facet_wrap(~ as.factor(time)) +
-  scale_y_continuous(name = "Density",
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Age [years]",
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0) +
-  theme(legend.position="top")
+##PLOT demographics
 
-
-data_all %>%
-   filter(time==1, seed==1) %>%
-   ggplot(aes(x=age)) +
-   geom_histogram(binwidth = 5) + 
-   stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) 
+#Plot population size
+# tiff(file.path(source.dir, "/Plots/Pop_size_migration.tif"), width=7, height=6, units = "in", res = 300)
+# 
+# ggplot(res) +
+#   geom_line(aes(x=time, y=pop_size, group = seed), color = "grey20", alpha = 0.3) +
+#   geom_line(data=avg_res, aes(x=time, y=N), size=1) +
+#   scale_y_continuous(name = "Population size (counts)",
+#                      breaks = seq(0, 10000, 500),
+#                      limits = c(0, 2000),
+#                      expand = c(0, 0)) +
+#   scale_x_continuous(name = "Time [months]",
+#                      #breaks = seq(0, 10000, 500),
+#                      limits = c(0, (T*12)+12),
+#                      expand = c(0, 0)) +
+#   expand_limits(x = 0,y = 0)
+# 
+# dev.off()
+# 
+# ##Age distribution by time
+# #https://r-charts.com/distribution/ggridges/
+# cohort_plot_age <- cohort %>%
+#   select(age, sex, wp) %>%
+#   mutate(ec = NA,
+#          ID = 1:nrow(cohort),
+#          time = 0,
+#          seed = NA)
+# bind_rows(cohort_plot_age,
+#   data_all %>%
+#   filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
+#   ggplot(aes(x=round(age))) +
+#   geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5, 
+#                  fill="white", position = 'dodge') +
+#   #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
+#   guides(colour=guide_legend(title="Simulation seed")) +
+#   scale_color_grey() +
+#   facet_wrap(~ as.factor(time)) +
+#   scale_y_continuous(name = "Density",
+#                      expand = c(0, 0)) +
+#   scale_x_continuous(name = "Age [years]",
+#                      expand = c(0, 0)) +
+#   expand_limits(x = 0,y = 0) +
+#   theme(legend.position="top")
+# 
+# 
+# data_all %>%
+#    filter(time==1, seed==1) %>%
+#    ggplot(aes(x=age)) +
+#    geom_histogram(binwidth = 5) + 
+#    stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) 
