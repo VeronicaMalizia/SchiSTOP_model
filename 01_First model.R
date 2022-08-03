@@ -50,14 +50,17 @@ table(cohort$sex)
 #   theme_bw()
 
 #Functions (they can be a separate script)
-age_groups <- c(0, 10, 20, 200)
-exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure rates (activity/person/day) 
+age_groups <- c(0, 10, 20, 100)
+#exposure_rates <- c(0, 0.75, 1, 0.50, 0) #Relative Age-specific exposure rates (activity/person/day) 
+exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
+#Data from water contacts computed from Seydou S., De Vlas SJ, et al. (2011)
 Age_profile_exp <- function(a){
   approx(x=age_groups, y=exposure_rates, xout=c(a), method = "linear")
 }
-plot(approx(x=age_groups, y=exposure_rates, method = "linear"), xlim = c(0, 80), 
+plot(approx(x=age_groups, y=exposure_rates, method = "linear"), xlim = c(0, 100), 
      ylim = c(0, 1), type = 'l', xlab = "Age", ylab = "Relative exposure rate")
-#lines(approx(x=age_groups, y=c(0.01, 0.61, 1, 0.12, 0.12), method = "constant"), xlim = c(0, 80), type = 'l', col='red')
+lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
+#Age-contribution function is what WORMSIM assumes to reflect the practice of open defecation in the population 
 Age_profile_contr <- function(a){
   if(a < 10)
     y <- 0.1*a
@@ -83,11 +86,11 @@ SEI <- function(t, x, parms) {
     #Logistic growth
     #For population growing with limited amount of resources
     beta <- beta0*(1-N/k) #Infected snails do not reproduce
-    FOIsnails <- FOIs/N
+    FOIs <- l0*(1-chi^(mir/N))
     
     #Equations
-    dS <- beta*(S+E) - (v+FOIsnails)*S #susceptible
-    dE <- FOIsnails*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
+    dS <- beta*(S+E) - (v+FOIs)*S #susceptible
+    dE <- FOIs*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
     dI <- tau*E - v2*I  #Infected: larvae in the snail are mature and snails shed cercariae
     dC <- lambda*I - m*C #Cercariae (output)
     res <- c(dS, dE, dI, dC)
@@ -101,7 +104,7 @@ birth_rate <- 36.5 #is crude annual birth rate Uganda 2019 (same y of available 
 #-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
 emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
-k_w <- 0.3 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
+k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
 zeta <- 0.003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 3,
@@ -133,12 +136,10 @@ mortality.rate = 1/lifespan
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
-#c = 2 #contact rate for snails. This should also be a calibrating parameter. 
-#For now we assume that snails get in contact with all free-living miracidiae. I think it cannot be >1
-chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
-# 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
+rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
+# (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 # However, I would consider it arbitrary too and then to be estimated. (Or look for data)
-l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
+max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d 
 
@@ -188,6 +189,11 @@ T <- 200 #number of years
 seeds <- 10
 
 #Run the model
+lim_mechanism <- c("snails") #choices: 'worms' (for DDF), 
+                             #'snails' (for vect. saturation), 
+                             #'humans' (for immunity), 
+                             #'no' (none)
+
 time.start <- Sys.time()
 source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
 time.end <- Sys.time()
@@ -349,7 +355,7 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
 eggs <- ggplot(age_out)+
   geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3) +
   facet_wrap(~ time, ncol = 4) +
-  scale_y_continuous(name = "Observed egg counts (epg) \n",
+  scale_y_continuous(name = "Observed egg counts (epg) \n geometric mean",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 200000),
                      expand = c(0, 0)) +

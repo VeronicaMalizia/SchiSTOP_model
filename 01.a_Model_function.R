@@ -135,9 +135,16 @@ results <- foreach(k = 1:seeds,
                        #(Shall we consider insemination probability??)
                        #eggs is the daily egg amount passed to the intestine
                        eggs <- eggs_prod*pop$wp
+                       
                        #Diagnosis 
                        #mu represents the expected egg load in a stool sample
                        mu <- alpha*pop$wp #*exp(-z*pop$fw) 
+                       
+                       if(lim_mechanism == "worms"){
+                         eggs <- eggs*exp(-z*(pop$wp/2))
+                         mu <- mu*exp(-z*(pop$wp/2))
+                       }
+                          
                        pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu) 
                        
                        #WORMS
@@ -172,43 +179,48 @@ results <- foreach(k = 1:seeds,
                        #Miracidiae intake at step t by the reservoir
                        m_in[t] <- sum(pop$co)
                        
-                       #Run snails ODEs model
-                       #in the final reservoir we have the output of cercariae
-                       #we assume particles not infecting humans do not survive from the previous month
+                       if(lim_mechanism != "snails")
+                         cercariae[t] <- m_in[t-1] # I could add a portion of dying miracidiae
                        
-                       #Call parameters and initial conditions
-                       #SEIC is at daily time step
-                       FOIs= chi*m_in[t] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
-                       parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-                                   FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
-                                   lambda = cerc.prod.rate, m = cerc.mortality)
-                       
-                       #Set initial conditions from the last day of previous run/month
-                       S0 = newstart[1]
-                       E0 = newstart[2]
-                       I0 = newstart[3]
-                       C0 = newstart[4]
-                       ## vector of time steps (30 days)
-                       times <- 1:30
-                       
-                       ## Start values for steady state
-                       xstart <- c(S = S0, E = E0, I = I0, C = C0)
-                       
-                       #Run and solve
-                       out <-  lsoda(xstart, times, SEI, parms) 
-                       
-                       ## Translate the output into a data.frame
-                       out2 <- as.data.frame(out)
-
-                       #Saving results at t=30, to be saved as input of the next simulation
-                       newstart <- c(out2$S[nrow(out2)],
-                                     out2$E[nrow(out2)],
-                                     out2$I[nrow(out2)],
-                                     out2$C[nrow(out2)])
-                       
-                       #Cercarial production 
-                       cercariae[t] <- out2$C[nrow(out2)]
-                       
+                       if(lim_mechanism == "snails"){
+                         #Run snails ODEs model
+                         #in the final reservoir we have the output of cercariae
+                         #we assume particles not infecting humans do not survive from the previous month
+                         
+                         #Call parameters and initial conditions
+                         #SEIC is at daily time step
+                         mirac.input = m_in[t] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
+                         parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
+                                     mir = mirac.input, l0 = max.invasion, chi = rej.prob,
+                                     v2 = mortality.rate.infection, tau = infection.rate,
+                                     lambda = cerc.prod.rate, m = cerc.mortality)
+                         
+                         #Set initial conditions from the last day of previous run/month
+                         S0 = newstart[1]
+                         E0 = newstart[2]
+                         I0 = newstart[3]
+                         C0 = newstart[4]
+                         ## vector of time steps (30 days)
+                         times <- 1:30
+                         
+                         ## Start values for steady state
+                         xstart <- c(S = S0, E = E0, I = I0, C = C0)
+                         
+                         #Run and solve
+                         out <-  lsoda(xstart, times, SEI, parms) 
+                         
+                         ## Translate the output into a data.frame
+                         out2 <- as.data.frame(out)
+  
+                         #Saving results at t=30, to be saved as input of the next simulation
+                         newstart <- c(out2$S[nrow(out2)],
+                                       out2$E[nrow(out2)],
+                                       out2$I[nrow(out2)],
+                                       out2$C[nrow(out2)])
+                         
+                         #Cercarial production 
+                         cercariae[t] <- out2$C[nrow(out2)]
+                       }
                        # sink("Find_bug.txt", append=TRUE)
                        # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
                        # sink()
@@ -218,8 +230,10 @@ results <- foreach(k = 1:seeds,
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       if(lim_mechanism == "snails"){
                        inf_snail[t] <- out2$I[nrow(out2)] 
                        tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
+                       }
                        
                        #Save annual individual output
                        if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
@@ -232,7 +246,9 @@ results <- foreach(k = 1:seeds,
                      }
                      
                      filename <- paste("Ind_out_seed_", k, ".csv", sep="")
-                     write.csv(ind_file, file.path(source.dir, "/Output/", filename), row.names = F)
+                     write.csv(ind_file, 
+                               file.path(source.dir, "/Output/", filename),
+                               row.names = F)
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),

@@ -7,7 +7,7 @@
 #This modules implements the SEI model for freshwater snail population
 #The model provides as outcome the FOIh: snail-to-human
 
-#Daily timesteps for snail population dynamics
+#Daily time steps for snail population dynamics
 
 #This script is explorative for snails dynamics. In the main Schisto model it is already included in line
 #############################
@@ -20,11 +20,11 @@ SEI <- function(t, x, parms) {
         #Logistic growth
         #For population growing with limited amount of resources
         beta <- beta0*(1-N/k) #Infected snails do not reproduce
-        FOIsnails <- FOIs/N
+        FOIs <- l0*(1-chi^(mir/N))
         
         #Equations
-        dS <- beta*(S+E) - (v+(FOIsnails))*S #susceptible
-        dE <- (FOIsnails)*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
+        dS <- beta*(S+E) - (v+FOIs)*S #susceptible
+        dE <- FOIs*S - (v+tau)*E #Exposed: snails are invaded, but larvae are not patent yet. Thus, snails do not shed cercariae
         dI <- tau*E - v2*I  #Infected: larvae in the snail are mature and snails shed cercariae
         dC <- lambda*I - m*C #Cercariae (output)
         res <- c(dS, dE, dI, dC)
@@ -50,19 +50,17 @@ mortality.rate = 1/lifespan
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
-#c = 2 #contact rate for snails. This should also be a calibrating parameter. 
-#For now we assume that snails get in contact with all free-living miracidiae. I think it cannot be >1
-chi = 0.5 #probability of a successful invasion for a single miracidia getting in contact with the host
-# 0.5 is Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
+rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
+# (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 # However, I would consider it arbitrary too and then to be estimated. (Or look for data)
-miracidiae = 10000 #fixed monthly intake
-l0 = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
+max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
-cerc.mortality = 1 #1/d
+cerc.mortality = 1 #1/d miracidiae = 10000000 #fixed monthly intake
 
-FOIs= chi*miracidiae #c*chi*miracidiae #Civitello uses 0.01
+mirac.input = 100000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-            FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
+            mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
+            v2 = mortality.rate.infection, tau = infection.rate,
             lambda = cerc.prod.rate, m = cerc.mortality)
 
 ## vector of time steps
