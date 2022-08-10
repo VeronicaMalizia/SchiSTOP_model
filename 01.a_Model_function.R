@@ -34,6 +34,7 @@ results <- foreach(k = 1:seeds,
                               jw1 = 0,
                               jw2 = 0,
                               jw3 = 0,
+                              cum_dwp = 0,
                               ec = 0,
                               co = contributions0) #female worms
                      N <- nrow(pop)
@@ -74,6 +75,7 @@ results <- foreach(k = 1:seeds,
                                     jw1 = rep(0, births),
                                     jw2 = rep(0, births),
                                     jw3 = rep(0, births),
+                                    cum_dwp = rep(0, births),
                                     ec = rep(0, births),
                                     co = rep(0, births))
 
@@ -121,12 +123,29 @@ results <- foreach(k = 1:seeds,
                        
                        #Parasitology (vectorised)
                        
-                       #EXPOSURE 
+                       #EXPOSURE and Worms update
                        #The individual assumes new worms nw (FOI)
                        #and only a portion survives from the previous month
                        #One exposure rate per individual (based on age and ind. sus.)
                        pop$rate <- FOIh(l=cercariae[t-1], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
-                       pop$jw1 <- rpois(nrow(pop), pop$rate) #First stage juveniles
+                       if(lim_mechanism == "humans") #Immunity
+                         pop$rate <- pop$rate*(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
+                       
+                       #Worms are updated with:
+                       #juveniles
+                       #survival portion of males and females worms from the previous month
+                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
+                       #per each human host, juvenile worms at stage 3 are assigned with sex
+                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
+                       new_pairs <- pmin(malesnw, pop$jw3)
+                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
+                       pop$wp <- pop$wp - dying_pairs + new_pairs
+                       pop$cum_dwp <- pop$cum_dwp + dying_pairs 
+                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
+                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
+                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
+                       #First stage juveniles(new acquired)
+                       pop$jw1 <- rpois(nrow(pop), pop$rate) 
                        if(t < ext.foi$duration*12)
                          pop$jw1 <- pop$jw1 + ext.foi$value
                       
@@ -154,26 +173,13 @@ results <- foreach(k = 1:seeds,
                          treated <- sample(SAC, mda$coverage*length(SAC))
                          killed_worms <- round(mda$efficacy*pop$wp[treated])
                          pop$wp[treated] <- pop$wp[treated] - killed_worms
-                         #pop$cum_dwp[treated] <- pop$cum_dwp[treated] + killed_worms
+                         pop$cum_dwp[treated] <- pop$cum_dwp[treated] + killed_worms
                        }
-                       
-                       #Worms are updated for the next month with:
-                       #the newborn(juveniles), which will be considered mature the next month
-                       #also with survival portion of males and females worms from the previous month
-                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
-                       #per each human host, juvenile worms at stage 3 are assigned with sex
-                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3)
-                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
-                       pop$wp <- pop$wp - dying_pairs + new_pairs
-                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
-                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
-                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
                        
                        
                        #Individual CONTRIBUTIONS 
                        #Eggs released (daily quantity, since it will enter the SEIC system) that will become miracidiae and will infect snails
-                       pop$co <- eggs * Age_profile_contr(pop$age) * pop$Ind_sus
+                       pop$co <- eggs * Age_profile_contr(pop$age)$y * pop$Ind_sus
                        
                        #RESERVOIR
                        #Miracidiae intake at step t by the reservoir
@@ -238,7 +244,7 @@ results <- foreach(k = 1:seeds,
                        #Save annual individual output
                        if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
                          ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, rate, wp, ec) %>%
+                                           select(pop, age, sex, rate, wp, ec, cum_dwp) %>%
                                            mutate(ID = 1:nrow(pop),
                                                   time = t/12,
                                                   seed = k))

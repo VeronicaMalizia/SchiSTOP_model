@@ -62,11 +62,7 @@ plot(approx(x=age_groups, y=exposure_rates, method = "linear"), xlim = c(0, 100)
 lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
 #Age-contribution function is what WORMSIM assumes to reflect the practice of open defecation in the population 
 Age_profile_contr <- function(a){
-  if(a < 10)
-    y <- 0.1*a
-  else
-    y <- 1
-  return(y)
+  approx(x=c(0, 10, 100), y=c(0, 1, 1), xout=c(a), method = "linear")
 }
 FOIh <- function(l, zeta, v, a, is){
   Rel_ex <- Age_profile_exp(a)$y * is
@@ -106,7 +102,7 @@ emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+zeta <- 0.0003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 3,
                   duration = 5) #years
 
@@ -118,6 +114,7 @@ eggs_prod <- 140 #daily egg production per worm pair, passed to the intestine
 z <- 0.0007
 k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
 #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
+imm = 0.0001 #immunity parameter (slope of the decrease in exposure)
 mda <- tibble(age.lo = 5,
              age.hi = 15,
              start = 70, #70,
@@ -189,7 +186,7 @@ T <- 200 #number of years
 seeds <- 10
 
 #Run the model
-lim_mechanism <- c("snails") #choices: 'worms' (for DDF), 
+lim_mechanism <- c("humans") #choices: 'worms' (for DDF), 
                              #'snails' (for vect. saturation), 
                              #'humans' (for immunity), 
                              #'no' (none)
@@ -330,7 +327,7 @@ data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all
 #Aggregate by age groups
 #Filter one year of interest
 unique(data_all$time) #individual output contains time in years
-years <- c(51, 81, 101, 181)
+years <- c(51, 71, 101, 181)
 age_out <- data_all %>%
   filter(time %in% years) %>%
   filter(seed %!in% dead.seeds) %>%
@@ -343,6 +340,7 @@ age_out <- data_all %>%
   group_by(seed, time, age_group, sex) %>%
   summarise(epg = geom_mean(ec*24+1), #means over individuals of that sex-age group
             wp = mean(wp),
+            dwp = mean(cum_dwp), 
             rate = mean(rate))
   
 age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
@@ -353,7 +351,7 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "50_90"))
 #Eggs by age
 eggs <- ggplot(age_out)+
-  geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3) +
+  geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3, outlier.shape = NA) +
   facet_wrap(~ time, ncol = 4) +
   scale_y_continuous(name = "Observed egg counts (epg) \n geometric mean",
                      #breaks = seq(0, 10000, 200),
@@ -365,7 +363,7 @@ eggs <- ggplot(age_out)+
 
 #Intensity by age
 worms <- ggplot(age_out)+
-  geom_boxplot(aes(x=age_group, y=wp), alpha = 0.3) +
+  geom_boxplot(aes(x=age_group, y=wp), alpha = 0.3, outlier.shape = NA) +
   facet_wrap(~ time, ncol = 4) +
   scale_y_continuous(name = "Average worm load (pairs) \n",
                      #breaks = seq(0, 10000, 200),
@@ -377,7 +375,7 @@ worms <- ggplot(age_out)+
 
 #Establishment rate by age
 rate <- ggplot(age_out)+
-  geom_boxplot(aes(x=age_group, y=rate), alpha = 0.3) +
+  geom_boxplot(aes(x=age_group, y=rate), alpha = 0.3, outlier.shape = NA) +
   facet_wrap(~ time, ncol = 4) + #scales = "free_y", 
   scale_y_continuous(name = "Parasite establishment rate \n",
                      #breaks = seq(0, 10000, 200),
@@ -385,11 +383,23 @@ rate <- ggplot(age_out)+
                      expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age [years]") +
   expand_limits(x = 0,y = 0) +
+  #coord_cartesian(ylim = c(0, 200000)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-tiff(file.path(source.dir, "/Plots/Boxplots_moderate.tif"), width=9, height=8, units = "in", res = 300)
+tiff(file.path(source.dir, "/Plots/Boxplots_snails.tif"), width=9, height=8, units = "in", res = 300)
 eggs / worms / rate
 dev.off()
+
+ggplot(age_out)+
+  geom_boxplot(aes(x=age_group, y=dwp), alpha = 0.3, outlier.shape = NA) +
+  facet_wrap(~ time, ncol = 4) +
+  scale_y_continuous(name = "Cumulative dead worms (pairs) \n",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0, 200000),
+                     expand = c(0, 0)) +
+  scale_x_discrete(name = " ") +
+  expand_limits(x = 0,y = 0) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 ##Print average worm pairs burden per person
 age_out %>% 
