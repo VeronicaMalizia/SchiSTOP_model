@@ -42,7 +42,7 @@ for(i in 1:nrow(to.save)){
 cohort <- cohort %>%
   mutate(sex = as.numeric(rbernoulli(nrow(cohort), 0.5)))
 
-hist(cohort$age)
+hist(cohort$age, main = "Initial age distribution", xlab = "Age (ys)")
 table(cohort$sex)
 
 # ggplot(cohort,aes(x=age,group=as.factor(sex),fill= as.factor(sex)))+
@@ -50,20 +50,21 @@ table(cohort$sex)
 #   theme_bw()
 
 #Functions (they can be a separate script)
-age_groups <- c(0, 10, 20, 100)
-#exposure_rates <- c(0, 0.75, 1, 0.50, 0) #Relative Age-specific exposure rates (activity/person/day) 
-exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
+age_groups <- c(0, 5, 12, 20, 100)
+exposure_rates <- c(0.01, 0.61, 1, 0.12, 0.12) #Relative Age-specific exposure rates (activity/person/day) 
+#exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
 #Data from water contacts computed from Seydou S., De Vlas SJ, et al. (2011)
 Age_profile_exp <- function(a){
-  approx(x=age_groups, y=exposure_rates, xout=c(a), method = "linear")
+  approx(x=age_groups, y=exposure_rates, xout=c(a), method = "constant")
 }
-plot(approx(x=age_groups, y=exposure_rates, method = "linear"), xlim = c(0, 100), 
-     ylim = c(0, 1), type = 'l', xlab = "Age", ylab = "Relative exposure rate")
-lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
-#Age-contribution function is what WORMSIM assumes to reflect the practice of open defecation in the population 
+plot(approx(x=age_groups, y=exposure_rates, method = "constant"), xlim = c(0, 100), ylim = c(0, 1), 
+     type = 'l', xlab = "Age", ylab = "Relative exposure rate")
+#lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
 Age_profile_contr <- function(a){
-  approx(x=c(0, 10, 100), y=c(0, 1, 1), xout=c(a), method = "linear")
+  approx(x=c(0, 10, 100), y=c(1, 1, 1), xout=c(a), method = "linear")
 }
+lines(approx(x=c(0, 10, 100), y=c(1, 1, 1), method = "linear"), col = "red")
+
 FOIh <- function(l, zeta, v, a, is){
   Rel_ex <- Age_profile_exp(a)$y * is
   return(l * zeta * v * Rel_ex)
@@ -103,18 +104,18 @@ emig_rate <- 20 #This is calibrated to have constant population
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
 zeta <- 0.0003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
-ext.foi <- tibble(value = 3,
-                  duration = 5) #years
+ext.foi <- tibble(value = 1, #monthly
+                  duration = 3) #years
 
 Tw <- 60 #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
 phi1 <- 1-exp(-1/Tw) #(monthly) exponential dying probability of worms within the host
 
 alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
-eggs_prod <- 140 #daily egg production per worm pair, passed to the intestine
+gr_stool <- 150 #daily gr of stool produced by each human individual
 z <- 0.0007
-k_e <- 0.22 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
+k_e <- 0.87 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
 #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
-imm = 0.0001 #immunity parameter (slope of the decrease in exposure)
+imm = 0.001 #immunity parameter (slope of the decrease in exposure)
 mda <- tibble(age.lo = 5,
              age.hi = 15,
              start = 70, #70,
@@ -157,9 +158,9 @@ cerc.mortality = 1 #1/d
 # hist(w0)
 
 #Option 2.
-# Worms are initialized with an artificial FOI (5/12 worm pairs per person per month)
+# Worms are initialized with an artificial FOI (1 worm pair per person per month)
 cohort <- cohort %>%
-  mutate(wp = 5,
+  mutate(jw1 = 1, 
          Ind_sus = rgamma(nrow(cohort), shape = k_w, scale = 1/k_w))
 
 #Create initial cloud
@@ -186,7 +187,7 @@ T <- 200 #number of years
 seeds <- 10
 
 #Run the model
-lim_mechanism <- c("humans") #choices: 'worms' (for DDF), 
+lim_mechanism <- c("worms") #choices: 'worms' (for DDF), 
                              #'snails' (for vect. saturation), 
                              #'humans' (for immunity), 
                              #'no' (none)
@@ -203,11 +204,11 @@ res <- bind_rows(results)
 #Average results over stochastic simulations
 
 #Check if there are faded out runs
-dead.seeds <- unique(res$seed[which
-                              (res$true_prev==0 & res$time!=1)])
+# dead.seeds <- unique(res$seed[which
+#                               (res$true_prev==0 & res$time!=1)])
 
 avg_res <- res %>%
-  filter(seed %!in% dead.seeds) %>%
+  #filter(seed %!in% dead.seeds) %>%
   group_by(time) %>%
   summarise(N = mean(pop_size),
             miracidiae = mean(miracidiae),
@@ -250,7 +251,7 @@ Fig +
   coord_cartesian(xlim=c(500, 1000)) 
 
 #Saving image
-tiff("Plots/Prevalence_low.tif", width=7, height=6, units = "in", res = 300)
+tiff("Plots/Prevalence_humans.tif", width=7, height=6, units = "in", res = 300)
 Fig
 dev.off()
 
@@ -327,10 +328,10 @@ data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all
 #Aggregate by age groups
 #Filter one year of interest
 unique(data_all$time) #individual output contains time in years
-years <- c(51, 71, 101, 181)
+years <- c(51, 81, 101, 181)
 age_out <- data_all %>%
   filter(time %in% years) %>%
-  filter(seed %!in% dead.seeds) %>%
+  #filter(seed %!in% dead.seeds) %>%
   mutate(age_group = case_when(age<=1 ~ "0_1",
                                age>1 & age<=5 ~ "1_5",
                                age>5 & age<=15 ~ "5_15",
@@ -386,8 +387,9 @@ rate <- ggplot(age_out)+
   #coord_cartesian(ylim = c(0, 200000)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-tiff(file.path(source.dir, "/Plots/Boxplots_snails.tif"), width=9, height=8, units = "in", res = 300)
-eggs / worms / rate
+tiff(file.path(source.dir, "/Plots/Boxplots_humans.tif"), width=9, height=8, units = "in", res = 300)
+eggs / worms / rate + 
+  plot_annotation(title = paste("Limiting mechanism on", lim_mechanism, sep = " "))
 dev.off()
 
 ggplot(age_out)+

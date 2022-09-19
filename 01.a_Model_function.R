@@ -31,7 +31,7 @@ results <- foreach(k = 1:seeds,
                      pop <- cohort %>%
                        mutate(death_age = 150,
                               rate = 0,
-                              jw1 = 0,
+                              wp = 0,
                               jw2 = 0,
                               jw3 = 0,
                               cum_dwp = 0,
@@ -60,19 +60,26 @@ results <- foreach(k = 1:seeds,
                        cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
                        sink()
                        
-                       #Beginning of each month, update demography
+                       ###########################################
+                       #Demography
+                       ###########################################
                        
-                       #Births
+                       #Beginning of each month, update demography
+                       ########## AGING
+                       pop$age <- pop$age + 1/12
+                       
+                       ########## BIRTHS
+                       # (births and migration: deterministic processed -> fixed rate)
                        #for now birth rate does not depend on age-specific female fertility
                        births <- birth_rate*(nrow(pop)/1000)/12
                        #new born
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5)),
-                                    wp = rep(0, births),
+                                    jw1 = rep(0, births),
                                     Ind_sus = rgamma(births, shape = k_w, scale = 1/k_w),
                                     death_age = 150,
                                     rate = rep(0, births),
-                                    jw1 = rep(0, births),
+                                    wp = rep(0, births),
                                     jw2 = rep(0, births),
                                     jw3 = rep(0, births),
                                     cum_dwp = rep(0, births),
@@ -81,8 +88,7 @@ results <- foreach(k = 1:seeds,
 
                        pop <- bind_rows(pop, nb)
 
-                       #Deaths
-
+                       ########## DEATHS
                        if(t %in% seq(1, (T*12), 12)){ #Januaries
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
 
@@ -106,7 +112,7 @@ results <- foreach(k = 1:seeds,
                        if(length(tmp)>0)
                          pop <- pop[-tmp,]
                        
-                       #Migration
+                       ########## MIGRATION
                        #For now we do not account for age-specific emigration
                        lambda <- (emig_rate*(nrow(pop)/1000))/12
                        emig_age <- which(pop$age>5&pop$age<55)
@@ -114,79 +120,58 @@ results <- foreach(k = 1:seeds,
                        if(length(emigrated)>0)
                          pop <- pop[-emigrated,]
 
-                       #Update age, population size, SAC and cumulative exposure
-                       pop$age <- pop$age + 1/12
+                       ########## UPDATE population size, SAC and cumulative exposure
                        N[t] <- nrow(pop)
                        SAC <- which(pop$age >= 5 & pop$age <= 15)
                        
                        cum_exp <- sum(Age_profile_exp(pop$age)$y*pop$Ind_sus) #Cumulative exposure
                        
+                       ###########################################
                        #Parasitology (vectorised)
+                       ###########################################
                        
-                       #EXPOSURE and Worms update
-                       #The individual assumes new worms nw (FOI)
-                       #and only a portion survives from the previous month
-                       #One exposure rate per individual (based on age and ind. sus.)
-                       pop$rate <- FOIh(l=cercariae[t-1], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
-                       if(lim_mechanism == "humans") #Immunity
-                         pop$rate <- pop$rate*(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
-                       
-                       #Worms are updated with:
-                       #juveniles
-                       #survival portion of males and females worms from the previous month
-                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
-                       #per each human host, juvenile worms at stage 3 are assigned with sex
-                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3)
-                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
-                       pop$wp <- pop$wp - dying_pairs + new_pairs
-                       pop$cum_dwp <- pop$cum_dwp + dying_pairs 
-                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
-                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
-                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
-                       #First stage juveniles(new acquired)
-                       pop$jw1 <- rpois(nrow(pop), pop$rate) 
-                       if(t < ext.foi$duration*12)
-                         pop$jw1 <- pop$jw1 + ext.foi$value
-                      
-                       #EGGS production (before updating worms)
-                       #Worms' pairs (so mature at stage 4) produce eggs
-                       #(Shall we consider insemination probability??)
-                       #eggs is the daily egg amount passed to the intestine
-                       eggs <- eggs_prod*pop$wp
-                       
-                       #Diagnosis 
-                       #mu represents the expected egg load in a stool sample
-                       mu <- alpha*pop$wp #*exp(-z*pop$fw) 
-                       
-                       if(lim_mechanism == "worms"){
-                         eggs <- eggs*exp(-z*(pop$wp/2))
-                         mu <- mu*exp(-z*(pop$wp/2))
-                       }
-                          
-                       pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu) 
-                       
-                       #WORMS
-                       #Control (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
+                       ########### 1. CONTROL (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
+                       # If MDA applies, it is scheduled at the beginning of the month
                        killed_worms <- 0
                        if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                         treated <- sample(SAC, mda$coverage*length(SAC))
+                         treated <- sample(SAC, mda$coverage*length(SAC)) #index of individuals
                          killed_worms <- round(mda$efficacy*pop$wp[treated])
                          pop$wp[treated] <- pop$wp[treated] - killed_worms
                          pop$cum_dwp[treated] <- pop$cum_dwp[treated] + killed_worms
                        }
                        
+                       ########### 2. EGGS production (before updating worms)
+                       #Worms' pairs (so mature at stage 4) produce eggs
+                       #(Shall we consider insemination probability??)
                        
-                       #Individual CONTRIBUTIONS 
-                       #Eggs released (daily quantity, since it will enter the SEIC system) that will become miracidiae and will infect snails
-                       pop$co <- eggs * Age_profile_contr(pop$age)$y * pop$Ind_sus
+                       #'mu' represents the expected egg load in a stool sample (41.7mg)
+                       #'eggs' is the daily egg amount passed to the environment
+                       # 24 is the conversion factor from egg counts and epg
+                       if(lim_mechanism != "worms"){
+                         mu <- alpha*pop$wp 
+                         eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
+                       } 
                        
-                       #RESERVOIR
+                       if(lim_mechanism == "worms"){
+                         mu <- alpha*pop$wp*exp(-z*(pop$wp/2))
+                         eggs <- mu*24*gr_stool
+                       }
+                       
+                       ########## 3. DIAGNOSIS 
+                       pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu)  
+                       
+                       ########## 4. CONTRIBUTION to the environment
+                       #Individual contributions
+                       #Eggs are passed to the intestine and released in the environment
+                       # TIP: I can add a delay in eggs' excretion
+                       pop$co <- eggs * Age_profile_contr(pop$age)$y 
+                       
+                       ########## 5. LIFE IN THE ENVIRONMENTAL RESERVOIR
                        #Miracidiae intake at step t by the reservoir
                        m_in[t] <- sum(pop$co)
                        
                        if(lim_mechanism != "snails")
-                         cercariae[t] <- m_in[t-1] # I could add a portion of dying miracidiae
+                         cercariae[t] <- m_in[t-1] 
                        
                        if(lim_mechanism == "snails"){
                          #Run snails ODEs model
@@ -194,8 +179,8 @@ results <- foreach(k = 1:seeds,
                          #we assume particles not infecting humans do not survive from the previous month
                          
                          #Call parameters and initial conditions
-                         #SEIC is at daily time step
-                         mirac.input = m_in[t] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
+                         #SEIC runs at daily time step
+                         mirac.input = m_in[t-1] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a unique factor of 0.01
                          parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
                                      mir = mirac.input, l0 = max.invasion, chi = rej.prob,
                                      v2 = mortality.rate.infection, tau = infection.rate,
@@ -217,7 +202,7 @@ results <- foreach(k = 1:seeds,
                          
                          ## Translate the output into a data.frame
                          out2 <- as.data.frame(out)
-  
+                         
                          #Saving results at t=30, to be saved as input of the next simulation
                          newstart <- c(out2$S[nrow(out2)],
                                        out2$E[nrow(out2)],
@@ -227,6 +212,15 @@ results <- foreach(k = 1:seeds,
                          #Cercarial production 
                          cercariae[t] <- out2$C[nrow(out2)]
                        }
+                       
+                       ########## 6. EXPOSURE OF HUMANS 
+                       #Each individual assumes new worms nw (FOIh)
+                       #One exposure rate per individual (based on age and ind. sus.)
+                       pop$rate <- FOIh(l=cercariae[t], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
+                       if(lim_mechanism == "humans") #Immunity
+                         pop$rate <- pop$rate*(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
+                       
+                       ########## 7. SAVE OUTPUT
                        # sink("Find_bug.txt", append=TRUE)
                        # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
                        # sink()
@@ -244,11 +238,35 @@ results <- foreach(k = 1:seeds,
                        #Save annual individual output
                        if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
                          ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, rate, wp, ec, cum_dwp) %>%
+                                           select(pop, age, sex, rate, wp, ec, co, cum_dwp) %>%
                                            mutate(ID = 1:nrow(pop),
                                                   time = t/12,
                                                   seed = k))
                        }
+                       
+                       ########## 7. WORMS UPDATE (for next month)
+                       # Aging of worms:
+                       ###Worm pairs (adults)
+                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
+                       #survival portion of males and females worms from the previous month
+                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
+                       #per each human host, juvenile worms at stage 3 are assigned with sex
+                       malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
+                       new_pairs <- pmin(malesnw, pop$jw3)
+                       
+                       pop$wp <- pop$wp - dying_pairs + new_pairs
+                       pop$cum_dwp <- pop$cum_dwp + dying_pairs
+                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
+                       
+                       ###Juveniles worms
+                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
+                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
+                       
+                       #First stage juveniles(new acquired)
+                       pop$jw1 <- rpois(nrow(pop), pop$rate) 
+                       if(t < ext.foi$duration*12)
+                         pop$jw1 <- pop$jw1 + round(ext.foi$value*pop$Ind_sus)
+                       
                      }
                      
                      filename <- paste("Ind_out_seed_", k, ".csv", sep="")
