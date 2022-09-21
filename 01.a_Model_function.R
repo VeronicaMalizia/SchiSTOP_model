@@ -31,7 +31,9 @@ results <- foreach(k = 1:seeds,
                      pop <- cohort %>%
                        mutate(death_age = 150,
                               rate = 0,
-                              wp = 0,
+                              wp1 = 0,
+                              wp2 = 0,
+                              wp3 = 0,
                               jw2 = 0,
                               jw3 = 0,
                               cum_dwp = 0,
@@ -79,7 +81,9 @@ results <- foreach(k = 1:seeds,
                                     Ind_sus = rgamma(births, shape = k_w, scale = 1/k_w),
                                     death_age = 150,
                                     rate = rep(0, births),
-                                    wp = rep(0, births),
+                                    wp1 = rep(0, births),
+                                    wp2 = rep(0, births),
+                                    wp3 = rep(0, births),
                                     jw2 = rep(0, births),
                                     jw3 = rep(0, births),
                                     cum_dwp = rep(0, births),
@@ -135,9 +139,15 @@ results <- foreach(k = 1:seeds,
                        killed_worms <- 0
                        if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
                          treated <- sample(SAC, mda$coverage*length(SAC)) #index of individuals
-                         killed_worms <- round(mda$efficacy*pop$wp[treated])
-                         pop$wp[treated] <- pop$wp[treated] - killed_worms
-                         pop$cum_dwp[treated] <- pop$cum_dwp[treated] + killed_worms
+                         #Killing of worms in the three age baskets:
+                         killed_worms1 <- round(mda$efficacy*pop$wp1[treated])
+                         killed_worms2 <- round(mda$efficacy*pop$wp2[treated])
+                         killed_worms3 <- round(mda$efficacy*pop$wp3[treated])
+                         pop$wp1[treated] <- pop$wp1[treated] - killed_worms1
+                         pop$wp2[treated] <- pop$wp2[treated] - killed_worms2
+                         pop$wp3[treated] <- pop$wp3[treated] - killed_worms3
+                         pop$cum_dwp[treated] <- pop$cum_dwp[treated] + 
+                           killed_worms1 + killed_worms2 + killed_worms3
                        }
                        
                        ########### 2. EGGS production (before updating worms)
@@ -147,13 +157,14 @@ results <- foreach(k = 1:seeds,
                        #'mu' represents the expected egg load in a stool sample (41.7mg)
                        #'eggs' is the daily egg amount passed to the environment
                        # 24 is the conversion factor from egg counts and epg
+                       Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        if(lim_mechanism != "worms"){
-                         mu <- alpha*pop$wp 
+                         mu <- alpha*Tot_wp
                          eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
                        } 
                        
                        if(lim_mechanism == "worms"){
-                         mu <- alpha*pop$wp*exp(-z*(pop$wp/2))
+                         mu <- alpha*Tot_wp*exp(-z*(Tot_wp/2))
                          eggs <- mu*24*gr_stool
                        }
                        
@@ -226,7 +237,8 @@ results <- foreach(k = 1:seeds,
                        # sink()
                        
                        #Summary statistics
-                       true_prev[t] <- length(which(pop$wp>0))/nrow(pop)
+                       tot_worms <- pop$jw1 + pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
+                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
@@ -238,34 +250,43 @@ results <- foreach(k = 1:seeds,
                        #Save annual individual output
                        if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
                          ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, rate, wp, ec, co, cum_dwp) %>%
-                                           mutate(ID = 1:nrow(pop),
+                                           select(pop, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
+                                           mutate(tot_wp = wp1+wp2+wp3,
+                                                  ID = 1:nrow(pop),
                                                   time = t/12,
                                                   seed = k))
                        }
                        
                        ########## 7. WORMS UPDATE (for next month)
-                       # Aging of worms:
-                       ###Worm pairs (adults)
-                       dying_pairs <- rbinom(nrow(pop), pop$wp, phi1)
-                       #survival portion of males and females worms from the previous month
+                       
+                       ###Juveniles worms
                        #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
                        #per each human host, juvenile worms at stage 3 are assigned with sex
                        malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3)
+                       new_pairs <- pmin(malesnw, pop$jw3) #From here on we track worm pairs as units. 
                        
-                       pop$wp <- pop$wp - dying_pairs + new_pairs
-                       pop$cum_dwp <- pop$cum_dwp + dying_pairs
-                       #From here we track worm pairs as units. Not tracked individual male/female worms in this version
-                       
-                       ###Juveniles worms
-                       pop$jw3 <- pop$jw2 - rbinom(nrow(pop), pop$jw2, phi1)
-                       pop$jw2 <- pop$jw1 - rbinom(nrow(pop), pop$jw1, phi1)
+                       pop$jw3 <- pop$jw2 
+                       pop$jw2 <- pop$jw1 
                        
                        #First stage juveniles(new acquired)
                        pop$jw1 <- rpois(nrow(pop), pop$rate) 
                        if(t < ext.foi$duration*12)
                          pop$jw1 <- pop$jw1 + round(ext.foi$value*pop$Ind_sus)
+                       
+                       ### Adults worm pairs
+                       # Aging of worms: Erlang distributed lifespans
+                       # Three baskets: wp1, wp2, wp3, three aging groups
+                       aging_1 <- round((1-phi)*pop$wp1)
+                       aging_2 <- round((1-phi)*pop$wp2)
+                       aging_3 <- round((1-phi)*pop$wp3) #dying_pairs
+                       
+                       pop$wp1 <- pop$wp1 + new_pairs - aging_1
+                       pop$wp2 <- pop$wp2 + aging_1 - aging_2
+                       pop$wp3 <- pop$wp3 + aging_2 - aging_3
+                       
+                       # Cumulated death worm pairs
+                       pop$cum_dwp <- pop$cum_dwp + aging_3
+                       
                        
                      }
                      
@@ -277,7 +298,7 @@ results <- foreach(k = 1:seeds,
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
                                    pop_size = N,
-                                   miracidiae = m_in/30, #to have a daily output
+                                   miracidiae = m_in, 
                                    cercariae = cercariae,
                                    true_prev = true_prev,
                                    eggs_prev = eggs_prev,

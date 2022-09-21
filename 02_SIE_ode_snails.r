@@ -34,14 +34,14 @@ SEI <- function(t, x, parms) {
 
 #Checks:
 ## 1. N is not supposed go asymptotically move towards k, because respectively to a normal logistic growth function (beta*(1-N/k)*N)
-##    here only S + E contribute to the reproduction. Moreover, I has an extra mortality factor.
+##    here only S + E contribute to the reproduction. Moreover, I have an extra mortality factor.
 ##    The population dynamics are different than a normal logistic growth population.
 ##
 ## 2. Is (and if so why) the snail infection prevalence affected by the choice of k? (see plotting code at the end of the document)
 
 ## Parameters
 #ENV = 500 #L, total volume of water
-max.reproduction.rate = 1 #d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
+max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
 carrying.capacity = 20000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
 lifespan = 100 #days, Civitello #Gurarie: about 3 months
 lifespan.infected = 30 #days, Gurarie
@@ -55,9 +55,9 @@ rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact w
 # However, I would consider it arbitrary too and then to be estimated. (Or look for data)
 max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
-cerc.mortality = 1 #1/d miracidiae = 10000000 #fixed monthly intake
+cerc.mortality = 1 #1/d 
 
-mirac.input = 100000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
+mirac.input = 30000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
             mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
             v2 = mortality.rate.infection, tau = infection.rate,
@@ -65,15 +65,15 @@ parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.
 
 ## vector of time steps
 #I have to stick to monthly time step as in the main module.
-ndays=180
+ndays=200
 times <- 1:ndays
 
 ## initial conditions
 #M0 = 100
-pop.size=10000
-E0=10
+snail.pop=10000
+E0=0
 I0=0
-S0=pop.size - sum(E0, I0)
+S0=snail.pop - sum(E0, I0)
 C0=0
 #If densities: S0=1
 
@@ -105,7 +105,7 @@ lines(out2$time, out2$E, col='dark green') #Exposed (infected but not shedding l
 lines(out2$time, out2$I, col='red') #Infected (larvae are mature and snails excrete cercariae)
 #str(out2)
 legend("topright", 
-       legend = c("Scusceptibles", "Exposed", "Infected"), 
+       legend = c("Susceptibles", "Exposed", "Infected"), 
        col = c("blue", "dark green", "red"), 
        pch = 20, 
        bty = "n", 

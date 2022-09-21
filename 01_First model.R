@@ -103,12 +103,12 @@ emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.0003 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+zeta <- 0.03 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 1, #monthly
                   duration = 3) #years
 
 Tw <- 60 #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
-phi1 <- 1-exp(-1/Tw) #(monthly) exponential dying probability of worms within the host
+phi <- 1-exp(-1/Tw) #(monthly) proportion of adult worm pairs aging from age basket i to i+1
 
 alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
 gr_stool <- 150 #daily gr of stool produced by each human individual
@@ -187,7 +187,7 @@ T <- 200 #number of years
 seeds <- 10
 
 #Run the model
-lim_mechanism <- c("worms") #choices: 'worms' (for DDF), 
+lim_mechanism <- c("snails") #choices: 'worms' (for DDF), 
                              #'snails' (for vect. saturation), 
                              #'humans' (for immunity), 
                              #'no' (none)
@@ -340,7 +340,7 @@ age_out <- data_all %>%
                                age>50 ~ "50_90")) %>% 
   group_by(seed, time, age_group, sex) %>%
   summarise(epg = geom_mean(ec*24+1), #means over individuals of that sex-age group
-            wp = mean(wp),
+            wp = mean(tot_wp),
             dwp = mean(cum_dwp), 
             rate = mean(rate))
   
