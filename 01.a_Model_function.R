@@ -136,9 +136,12 @@ results <- foreach(k = 1:seeds,
                        
                        ########### 1. CONTROL (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
                        # If MDA applies, it is scheduled at the beginning of the month
-                       killed_worms <- 0
+                       killed_worms1 <- 0
+                       killed_worms2 <- 0
+                       killed_worms3 <- 0
                        if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                         treated <- sample(SAC, mda$coverage*length(SAC)) #index of individuals
+                         target <- which(pop$age >= mda$age.lo & pop$age <= mda$age.hi)
+                         treated <- sample(target, mda$coverage*length(target)) #index of individuals
                          #Killing of worms in the three age baskets:
                          killed_worms1 <- round(mda$efficacy*pop$wp1[treated])
                          killed_worms2 <- round(mda$efficacy*pop$wp2[treated])
@@ -158,7 +161,7 @@ results <- foreach(k = 1:seeds,
                        #'eggs' is the daily egg amount passed to the environment
                        # 24 is the conversion factor from egg counts and epg
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
-                       if(lim_mechanism != "worms"){
+                       if(lim_mechanism == "snails"){
                          mu <- alpha*Tot_wp
                          eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
                        } 
@@ -168,6 +171,11 @@ results <- foreach(k = 1:seeds,
                          eggs <- mu*24*gr_stool
                        }
                        
+                       if(lim_mechanism == "humans"){
+                         mu <- alpha*Tot_wp*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
+                         eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
+                       } 
+                         
                        ########## 3. DIAGNOSIS 
                        pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu)  
                        
@@ -229,33 +237,9 @@ results <- foreach(k = 1:seeds,
                        #One exposure rate per individual (based on age and ind. sus.)
                        pop$rate <- FOIh(l=cercariae[t], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
                        if(lim_mechanism == "humans") #Immunity
-                         pop$rate <- pop$rate*(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
+                         pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
+                         #(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
                        
-                       ########## 7. SAVE OUTPUT
-                       # sink("Find_bug.txt", append=TRUE)
-                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
-                       # sink()
-                       
-                       #Summary statistics
-                       tot_worms <- pop$jw1 + pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
-                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
-                       eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
-                       eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
-                       if(lim_mechanism == "snails"){
-                       inf_snail[t] <- out2$I[nrow(out2)] 
-                       tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
-                       }
-                       
-                       #Save annual individual output
-                       if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
-                         ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
-                                           mutate(tot_wp = wp1+wp2+wp3,
-                                                  ID = 1:nrow(pop),
-                                                  time = t/12,
-                                                  seed = k))
-                       }
                        
                        ########## 7. WORMS UPDATE (for next month)
                        
@@ -287,10 +271,35 @@ results <- foreach(k = 1:seeds,
                        # Cumulated death worm pairs
                        pop$cum_dwp <- pop$cum_dwp + aging_3
                        
+                       ########## 8. SAVE OUTPUT
+                       # sink("Find_bug.txt", append=TRUE)
+                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
+                       # sink()
                        
+                       #Summary statistics
+                       tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
+                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
+                       eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
+                       eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
+                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       if(lim_mechanism == "snails"){
+                         inf_snail[t] <- out2$I[nrow(out2)] 
+                         tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
+                       }
+                       
+                       #Save annual individual output
+                       if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
+                         ind_file <- rbind(ind_file,
+                                           select(pop, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
+                                             mutate(tot_wp = wp1+wp2+wp3,
+                                                    ID = 1:nrow(pop),
+                                                    time = t/12, #years
+                                                    seed = k))
+                       }
                      }
                      
                      filename <- paste("Ind_out_seed_", k, ".csv", sep="")
+                     #Write
                      write.csv(ind_file, 
                                file.path(source.dir, "/Output/", filename),
                                row.names = F)

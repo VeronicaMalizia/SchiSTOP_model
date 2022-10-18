@@ -73,6 +73,11 @@ hyp_sat <- function(alpha, beta, w){ #Hyperbolic saturating function
   f <- (alpha*w) / (1 + ((alpha*w) / beta))
   return(f)
 }
+logistic <- function(k, w0, w){ #Logistic reduction function 
+  f <- 1 / (1 + exp(k*(w-w0)))
+  return(f)
+}
+#plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1))
 exp_sat <- function(a, b, c, x){ #Exponential saturating function
   f <- a*(1-exp(-b*x))*(1-exp(-c*x)) 
   return(f)
@@ -103,23 +108,25 @@ emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.03 #overall exposure rate. (0.42 water contacts rate per day, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+zeta <- 0.0015 #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 1, #monthly
                   duration = 3) #years
 
 Tw <- 60 #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
-phi <- 1-exp(-1/Tw) #(monthly) proportion of adult worm pairs aging from age basket i to i+1
+pp <- 3 #Pre-patent period (months)
+phi <- 1-exp(-3/(Tw-pp)) #(monthly) proportion of adult worm pairs aging from age basket i to i+1, assuming 3 baskets 
 
 alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
 gr_stool <- 150 #daily gr of stool produced by each human individual
 z <- 0.0007
 k_e <- 0.87 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
 #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
-imm = 0.001 #immunity parameter (slope of the decrease in exposure)
+imm = 0.001 #immunity slope parameter
+w0_imm = 4000 #immunity mid-sigmoid parameter
 mda <- tibble(age.lo = 5,
              age.hi = 15,
-             start = 70, #70,
-             end = 80, #80,
+             start = 150, #70,
+             end = 160, #80,
              frequency = 1, #annual
              coverage = 0.75,
              efficacy = 0.85)
@@ -128,7 +135,7 @@ mda <- tibble(age.lo = 5,
 max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
 carrying.capacity = 20000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
 lifespan = 100 #days, Civitello #Gurarie: about 3 months
-lifespan.infected = 30 #days, Gurarie
+lifespan.infected = 30 #days, Civitello
 mortality.rate = 1/lifespan 
 #lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
@@ -181,16 +188,18 @@ E0=0
 I0=0
 S0=snail.pop - sum(E0, I0)
 C0=0
-#If densities: S0=1
 
 T <- 200 #number of years
-seeds <- 10
+seeds <- 30
+
+#Empty the Output folder
+unlink(file.path(source.dir, "/Output/*")) 
 
 #Run the model
-lim_mechanism <- c("snails") #choices: 'worms' (for DDF), 
+lim_mechanism <- c("humans") #choices: 'worms' (for DDF), 
                              #'snails' (for vect. saturation), 
                              #'humans' (for immunity), 
-                             #'no' (none)
+                            
 
 time.start <- Sys.time()
 source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
@@ -221,15 +230,15 @@ avg_res <- res %>%
 
 
 #Plot prevalence
-Fig <- ggplot(res) +
-  geom_line(aes(x=time, y=true_prev, group = seed), color = "grey20", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=true_prev, color="True")) +
-  geom_line(aes(x=time, y=eggs_prev, group = seed), color = "turquoise", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=eggs_prev, color="KK-based")) +
-  geom_line(aes(x=time, y=eggs_prev_SAC, group = seed), color = "light green", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=eggs_prev_SAC, color="KK-based in SAC")) +
-  geom_line(aes(x=time, y=Heggs_prev, group = seed), color = "coral", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=Heggs_prev, color="High intensities")) +
+Fig <- ggplot(res, aes(x=time/12)) +
+  geom_line(aes(y=true_prev, group = seed), color = "grey20", alpha = 0.3) +
+  geom_line(data=avg_res, aes(y=true_prev, color="True")) +
+  geom_line(aes(y=eggs_prev, group = seed), color = "turquoise", alpha = 0.3) +
+  geom_line(data=avg_res, aes(y=eggs_prev, color="KK-based")) +
+  geom_line(aes(y=eggs_prev_SAC, group = seed), color = "light green", alpha = 0.3) +
+  geom_line(data=avg_res, aes(y=eggs_prev_SAC, color="KK-based in SAC")) +
+  geom_line(aes(y=Heggs_prev, group = seed), color = "coral", alpha = 0.3) +
+  geom_line(data=avg_res, aes(y=Heggs_prev, color="High intensities")) +
   scale_color_manual(name = "Prevalence:",
                      values = c("True" = "black",
                                 "KK-based" = "dark blue",
@@ -239,7 +248,7 @@ Fig <- ggplot(res) +
                      breaks = seq(0, 1, 0.2),
                      limits = c(0, 1),
                      expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [Months]",
+  scale_x_continuous(name = "Time [Years]",
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
   #coord_cartesian(xlim=c(500, (T*12))) +
@@ -248,10 +257,10 @@ Fig <- ggplot(res) +
 Fig
 
 Fig +
-  coord_cartesian(xlim=c(500, 1000)) 
+  coord_cartesian(xlim=c(145, 165)) 
 
 #Saving image
-tiff("Plots/Prevalence_humans.tif", width=7, height=6, units = "in", res = 300)
+tiff("Plots/Limiting mechanisms/Prevalence_Snails.tif", width=7, height=6, units = "in", res = 300)
 Fig
 dev.off()
 
@@ -328,7 +337,7 @@ data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all
 #Aggregate by age groups
 #Filter one year of interest
 unique(data_all$time) #individual output contains time in years
-years <- c(51, 81, 101, 181)
+years <- c(81, 101, 151, 181) #c(51, 81, 101, 151, 161, 171, 181, 191)
 age_out <- data_all %>%
   filter(time %in% years) %>%
   #filter(seed %!in% dead.seeds) %>%
@@ -336,10 +345,10 @@ age_out <- data_all %>%
                                age>1 & age<=5 ~ "1_5",
                                age>5 & age<=15 ~ "5_15",
                                age>15 & age<=30 ~ "15_30",
-                               age>30 & age<=50 ~ "30_50",
-                               age>50 ~ "50_90")) %>% 
+                               age>30 & age<=40 ~ "30_40",
+                               age>40 ~ "40_90")) %>% 
   group_by(seed, time, age_group, sex) %>%
-  summarise(epg = geom_mean(ec*24+1), #means over individuals of that sex-age group
+  summarise(epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group
             wp = mean(tot_wp),
             dwp = mean(cum_dwp), 
             rate = mean(rate))
@@ -348,8 +357,8 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "1_5",
                                                           "5_15",
                                                           "15_30",
-                                                          "30_50",
-                                                          "50_90"))
+                                                          "30_40",
+                                                          "40_90"))
 #Eggs by age
 eggs <- ggplot(age_out)+
   geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3, outlier.shape = NA) +
@@ -387,11 +396,12 @@ rate <- ggplot(age_out)+
   #coord_cartesian(ylim = c(0, 200000)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-tiff(file.path(source.dir, "/Plots/Boxplots_humans.tif"), width=9, height=8, units = "in", res = 300)
+tiff(file.path(source.dir, "/Plots/Limiting mechanisms/Boxplots_Snails.tif"), width=9, height=8, units = "in", res = 300)
 eggs / worms / rate + 
   plot_annotation(title = paste("Limiting mechanism on", lim_mechanism, sep = " "))
 dev.off()
 
+tiff(file.path(source.dir, "/Plots/Limiting mechanisms/Deadworms_Snails.tif"), width=9, height=8, units = "in", res = 300)
 ggplot(age_out)+
   geom_boxplot(aes(x=age_group, y=dwp), alpha = 0.3, outlier.shape = NA) +
   facet_wrap(~ time, ncol = 4) +
@@ -399,15 +409,35 @@ ggplot(age_out)+
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 200000),
                      expand = c(0, 0)) +
-  scale_x_discrete(name = " ") +
+  scale_x_discrete(name = "\n Age [years]") +
   expand_limits(x = 0,y = 0) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+dev.off()
 
 ##Print average worm pairs burden per person
 age_out %>% 
   filter(time==181) %>%
   group_by(time) %>%
   summarise(avg_wp = mean(wp))
+
+##Inspecting worms lifespans
+w <- rgamma(100000, shape = 3, rate = 3/57)
+plot(density(rgamma(100000, shape = 3, rate = 3/57)), lwd = 2.0, xlab = 'Age of worms [months]', main = "Worms' age distribution", xlim = c(0, 300))
+quantile(w, probs = c(0.25, 0.5, 0.75, 0.95, 0.99, 1))
+# 25%       50%       75%       95%       99%      100% 
+#   34.52039  53.39290  78.43578 127.09506 168.28005 313.55901 
+abline(v = c(127, 168), col = c('red', 'brown'), lwd = 2.0)
+abline(v = 57, col = c('green'), lty = 5, lwd = 2.0)
+legend("topright", 
+        legend = c("Mean = 57 months", "95% perc = 10ys", "99% perc = 14ys"), 
+        col = c("green", "red", "brown"), 
+        pch = 20, 
+        bty = "n", 
+        pt.cex = 2, 
+        cex = 1.2, 
+        text.col = "black", 
+        horiz = F , 
+        inset = c(0.1, 0.1))
 
 ##PLOT demographics
 
@@ -430,29 +460,28 @@ age_out %>%
 # dev.off()
 # 
 # ##Age distribution by time
-# #https://r-charts.com/distribution/ggridges/
-# cohort_plot_age <- cohort %>%
-#   select(age, sex, wp) %>%
-#   mutate(ec = NA,
-#          ID = 1:nrow(cohort),
-#          time = 0,
-#          seed = NA)
-# bind_rows(cohort_plot_age,
-#   data_all %>%
-#   filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
-#   ggplot(aes(x=round(age))) +
-#   geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5, 
-#                  fill="white", position = 'dodge') +
-#   #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
-#   guides(colour=guide_legend(title="Simulation seed")) +
-#   scale_color_grey() +
-#   facet_wrap(~ as.factor(time)) +
-#   scale_y_continuous(name = "Density",
-#                      expand = c(0, 0)) +
-#   scale_x_continuous(name = "Age [years]",
-#                      expand = c(0, 0)) +
-#   expand_limits(x = 0,y = 0) +
-#   theme(legend.position="top")
+#https://r-charts.com/distribution/ggridges/
+cohort_plot_age <- cohort %>%
+  select(age) %>%
+  mutate(ID = 1:nrow(cohort),
+         time = 0,
+         seed = NA)
+bind_rows(cohort_plot_age,
+  select(data_all, age, ID, time, seed) %>%
+  filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
+  ggplot(aes(x=round(age))) +
+  geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5,
+                 fill="white", position = 'dodge') +
+  #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
+  guides(colour=guide_legend(title="Simulation seed")) +
+  scale_color_grey() +
+  facet_wrap(~ as.factor(time)) +
+  scale_y_continuous(name = "Density",
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Age [years]",
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0) +
+  theme(legend.position="top")
 # 
 # 
 # data_all %>%
