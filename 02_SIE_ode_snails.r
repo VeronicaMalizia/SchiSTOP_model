@@ -65,7 +65,7 @@ parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.
 
 ## vector of time steps
 #I have to stick to monthly time step as in the main module.
-ndays=200
+ndays=100
 times <- 1:ndays
 
 ## initial conditions

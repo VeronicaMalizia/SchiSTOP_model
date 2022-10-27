@@ -77,7 +77,7 @@ logistic <- function(k, w0, w){ #Logistic reduction function
   f <- 1 / (1 + exp(k*(w-w0)))
   return(f)
 }
-#plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1))
+#plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1), ylab = "Reduction", xlab = "Number of worm pairs")
 exp_sat <- function(a, b, c, x){ #Exponential saturating function
   f <- a*(1-exp(-b*x))*(1-exp(-c*x)) 
   return(f)
@@ -108,7 +108,7 @@ emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.0015 #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+zeta <- 0.0005 #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 1, #monthly
                   duration = 3) #years
 
@@ -122,14 +122,15 @@ z <- 0.0007
 k_e <- 0.87 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
 #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
 imm = 0.001 #immunity slope parameter
-w0_imm = 4000 #immunity mid-sigmoid parameter
+w0_imm = 500 #4000 #immunity mid-sigmoid parameter
 mda <- tibble(age.lo = 5,
              age.hi = 15,
-             start = 150, #70,
-             end = 160, #80,
+             start = 160, #70,
+             end = 170, #80,
              frequency = 1, #annual
              coverage = 0.75,
              efficacy = 0.85)
+fr <- 10 #frequency of individual output saving [years]
 
 ##Parameters for ODEs model for snails (These rates are daily)
 max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
@@ -196,7 +197,7 @@ seeds <- 30
 unlink(file.path(source.dir, "/Output/*")) 
 
 #Run the model
-lim_mechanism <- c("humans") #choices: 'worms' (for DDF), 
+lim_mechanism <- c("worms") #choices: 'worms' (for DDF), 
                              #'snails' (for vect. saturation), 
                              #'humans' (for immunity), 
                             
@@ -278,15 +279,15 @@ ggplot(avg_res) +
   expand_limits(x = 0,y = 0)
 dev.off()
 
-# ggplot(res) +
-#   geom_line(aes(x=time, y=inf_snail, group = seed), color = "purple", alpha = 0.3) +
-#   geom_line(aes(x=time, y=tot_snail, group = seed), color = "brown", alpha = 0.3) +
-#   scale_y_continuous(name = "Abundance of snails",
-#                      expand = c(0, 0)) +
-#   scale_x_continuous(name = "Time [Months]",
-#                      #limits = c(0, 1200),
-#                      expand = c(0, 0)) +
-#   expand_limits(x = 0,y = 0)
+ggplot(res) +
+  geom_line(aes(x=time, y=inf_snail, group = seed), color = "purple", alpha = 0.3) +
+  geom_line(aes(x=time, y=tot_snail, group = seed), color = "brown", alpha = 0.3) +
+  scale_y_continuous(name = "Abundance of snails",
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Time [Months]",
+                     #limits = c(0, 1200),
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0)
 
 #Plot cercariae and miracidiae in the environmental reservoir
 tiff(file.path(source.dir, "/Plots/Cercariae_moderate.tif"), width=7, height=6, units = "in", res = 300)
@@ -361,11 +362,11 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "40_90"))
 #Eggs by age
 eggs <- ggplot(age_out)+
-  geom_boxplot(aes(x=age_group, y=epg-1), alpha = 0.3, outlier.shape = NA) +
+  geom_boxplot(aes(x=age_group, y=epg), alpha = 0.3, outlier.shape = NA) +
   facet_wrap(~ time, ncol = 4) +
   scale_y_continuous(name = "Observed egg counts (epg) \n geometric mean",
                      #breaks = seq(0, 10000, 200),
-                     #limits = c(0, 200000),
+                     #limits = c(0, 1000),
                      expand = c(0, 0)) +
   scale_x_discrete(name = " ") +
   expand_limits(x = 0,y = 0) +
@@ -377,7 +378,7 @@ worms <- ggplot(age_out)+
   facet_wrap(~ time, ncol = 4) +
   scale_y_continuous(name = "Average worm load (pairs) \n",
                      #breaks = seq(0, 10000, 200),
-                     #limits = c(0, 200000),
+                     #limits = c(0, 300),
                      expand = c(0, 0)) +
   scale_x_discrete(name = " ") +
   expand_limits(x = 0,y = 0) +
@@ -389,7 +390,7 @@ rate <- ggplot(age_out)+
   facet_wrap(~ time, ncol = 4) + #scales = "free_y", 
   scale_y_continuous(name = "Parasite establishment rate \n",
                      #breaks = seq(0, 10000, 200),
-                     #limits = c(0, 200000),
+                     #limits = c(0, 20),
                      expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age [years]") +
   expand_limits(x = 0,y = 0) +
@@ -407,7 +408,7 @@ ggplot(age_out)+
   facet_wrap(~ time, ncol = 4) +
   scale_y_continuous(name = "Cumulative dead worms (pairs) \n",
                      #breaks = seq(0, 10000, 200),
-                     #limits = c(0, 200000),
+                     #limits = c(0, 2000),
                      expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age [years]") +
   expand_limits(x = 0,y = 0) +
@@ -426,10 +427,10 @@ plot(density(rgamma(100000, shape = 3, rate = 3/57)), lwd = 2.0, xlab = 'Age of 
 quantile(w, probs = c(0.25, 0.5, 0.75, 0.95, 0.99, 1))
 # 25%       50%       75%       95%       99%      100% 
 #   34.52039  53.39290  78.43578 127.09506 168.28005 313.55901 
-abline(v = c(127, 168), col = c('red', 'brown'), lwd = 2.0)
+abline(v = c(119, 160), col = c('red', 'brown'), lwd = 2.0)
 abline(v = 57, col = c('green'), lty = 5, lwd = 2.0)
 legend("topright", 
-        legend = c("Mean = 57 months", "95% perc = 10ys", "99% perc = 14ys"), 
+        legend = c("Mean = 57 months", "95% perc = 10ys", "99% perc = 13ys"), 
         col = c("green", "red", "brown"), 
         pch = 20, 
         bty = "n", 

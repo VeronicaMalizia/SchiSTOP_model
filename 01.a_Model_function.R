@@ -29,7 +29,8 @@ results <- foreach(k = 1:seeds,
                      #Time step events, for each individual
                      #Initialize
                      pop <- cohort %>%
-                       mutate(death_age = 150,
+                       mutate(ID = c(1:nrow(cohort)),
+                              death_age = 150,
                               rate = 0,
                               wp1 = 0,
                               wp2 = 0,
@@ -40,6 +41,7 @@ results <- foreach(k = 1:seeds,
                               ec = 0,
                               co = contributions0) #female worms
                      N <- nrow(pop)
+                     ever_lived <- N
                      SAC <- which(pop$age >= 5 & pop$age <= 15)
                      
                      true_prev <- c(0)
@@ -73,12 +75,13 @@ results <- foreach(k = 1:seeds,
                        ########## BIRTHS
                        # (births and migration: deterministic processed -> fixed rate)
                        #for now birth rate does not depend on age-specific female fertility
-                       births <- birth_rate*(nrow(pop)/1000)/12
+                       births <- round(birth_rate*(nrow(pop)/1000)/12)
                        #new born
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5)),
                                     jw1 = rep(0, births),
                                     Ind_sus = rgamma(births, shape = k_w, scale = 1/k_w),
+                                    ID = c((ever_lived+1):(ever_lived+births)),
                                     death_age = 150,
                                     rate = rep(0, births),
                                     wp1 = rep(0, births),
@@ -91,7 +94,8 @@ results <- foreach(k = 1:seeds,
                                     co = rep(0, births))
 
                        pop <- bind_rows(pop, nb)
-
+                       ever_lived <- ever_lived+births
+                       
                        ########## DEATHS
                        if(t %in% seq(1, (T*12), 12)){ #Januaries
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
@@ -118,7 +122,7 @@ results <- foreach(k = 1:seeds,
                        
                        ########## MIGRATION
                        #For now we do not account for age-specific emigration
-                       lambda <- (emig_rate*(nrow(pop)/1000))/12
+                       lambda <- round(emig_rate*(nrow(pop)/1000)/12)
                        emig_age <- which(pop$age>5&pop$age<55)
                        emigrated <- sample(emig_age, lambda)
                        if(length(emigrated)>0)
@@ -142,10 +146,11 @@ results <- foreach(k = 1:seeds,
                        if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
                          target <- which(pop$age >= mda$age.lo & pop$age <= mda$age.hi)
                          treated <- sample(target, mda$coverage*length(target)) #index of individuals
+                         n_treated <- length(treated)
                          #Killing of worms in the three age baskets:
-                         killed_worms1 <- round(mda$efficacy*pop$wp1[treated])
-                         killed_worms2 <- round(mda$efficacy*pop$wp2[treated])
-                         killed_worms3 <- round(mda$efficacy*pop$wp3[treated])
+                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = mda$efficacy)
+                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = mda$efficacy)
+                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = mda$efficacy)
                          pop$wp1[treated] <- pop$wp1[treated] - killed_worms1
                          pop$wp2[treated] <- pop$wp2[treated] - killed_worms2
                          pop$wp3[treated] <- pop$wp3[treated] - killed_worms3
@@ -183,7 +188,7 @@ results <- foreach(k = 1:seeds,
                        #Individual contributions
                        #Eggs are passed to the intestine and released in the environment
                        # TIP: I can add a delay in eggs' excretion
-                       pop$co <- eggs * Age_profile_contr(pop$age)$y 
+                       pop$co <- round(eggs * Age_profile_contr(pop$age)$y)
                        
                        ########## 5. LIFE IN THE ENVIRONMENTAL RESERVOIR
                        #Miracidiae intake at step t by the reservoir
@@ -240,8 +245,32 @@ results <- foreach(k = 1:seeds,
                          pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                          #(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
                        
+                       ########## 7. SAVE OUTPUT
+                       # sink("Find_bug.txt", append=TRUE)
+                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
+                       # sink()
                        
-                       ########## 7. WORMS UPDATE (for next month)
+                       #Summary statistics
+                       tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
+                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
+                       eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
+                       eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
+                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       if(lim_mechanism == "snails"){
+                         inf_snail[t] <- out2$I[nrow(out2)] 
+                         tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
+                       }
+                       
+                       #Save annual individual output
+                       if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
+                         ind_file <- rbind(ind_file,
+                                           select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
+                                             mutate(tot_wp = wp1+wp2+wp3,
+                                                    time = t/12, #years
+                                                    seed = k))
+                       }
+                       
+                       ########## 8. WORMS UPDATE (for next month)
                        
                        ###Juveniles worms
                        #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
@@ -260,9 +289,9 @@ results <- foreach(k = 1:seeds,
                        ### Adults worm pairs
                        # Aging of worms: Erlang distributed lifespans
                        # Three baskets: wp1, wp2, wp3, three aging groups
-                       aging_1 <- round((1-phi)*pop$wp1)
-                       aging_2 <- round((1-phi)*pop$wp2)
-                       aging_3 <- round((1-phi)*pop$wp3) #dying_pairs
+                       aging_1 <- rbinom(nrow(pop), pop$wp1, phi)
+                       aging_2 <- rbinom(nrow(pop), pop$wp2, phi)
+                       aging_3 <- rbinom(nrow(pop), pop$wp3, phi) #dying_pairs
                        
                        pop$wp1 <- pop$wp1 + new_pairs - aging_1
                        pop$wp2 <- pop$wp2 + aging_1 - aging_2
@@ -270,32 +299,6 @@ results <- foreach(k = 1:seeds,
                        
                        # Cumulated death worm pairs
                        pop$cum_dwp <- pop$cum_dwp + aging_3
-                       
-                       ########## 8. SAVE OUTPUT
-                       # sink("Find_bug.txt", append=TRUE)
-                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
-                       # sink()
-                       
-                       #Summary statistics
-                       tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
-                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
-                       eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
-                       eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
-                       if(lim_mechanism == "snails"){
-                         inf_snail[t] <- out2$I[nrow(out2)] 
-                         tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
-                       }
-                       
-                       #Save annual individual output
-                       if(t %in% seq(12, (T*12), 10*12) & t > 500){ #Decembers, every 10 years
-                         ind_file <- rbind(ind_file,
-                                           select(pop, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
-                                             mutate(tot_wp = wp1+wp2+wp3,
-                                                    ID = 1:nrow(pop),
-                                                    time = t/12, #years
-                                                    seed = k))
-                       }
                      }
                      
                      filename <- paste("Ind_out_seed_", k, ".csv", sep="")
