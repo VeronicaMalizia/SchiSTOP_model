@@ -20,7 +20,8 @@ SEI <- function(t, x, parms) {
         #Logistic growth
         #For population growing with limited amount of resources
         beta <- beta0*(1-N/k) #Infected snails do not reproduce
-        FOIs <- l0*(1-chi^(mir/N))
+        FOIs <- b*mir/N
+          #l0*(1-chi^(mir/N)) #Gurarie - non linear FOIs
         
         #Equations
         dS <- beta*(S+E) - (v+FOIs)*S #susceptible
@@ -50,22 +51,22 @@ mortality.rate = 1/lifespan
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
-rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
+snail_transmission_rate = 0.01 #a combined version of exposure rate and probability of success. invasion
+#rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
 # (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
-# However, I would consider it arbitrary too and then to be estimated. (Or look for data)
 max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d 
 
 mirac.input = 30000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-            mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
+            b = snail_transmission_rate, mir = mirac.input, l0 = max.invasion, #chi = rej.prob, 
             v2 = mortality.rate.infection, tau = infection.rate,
             lambda = cerc.prod.rate, m = cerc.mortality)
 
 ## vector of time steps
 #I have to stick to monthly time step as in the main module.
-ndays=100
+ndays=30
 times <- 1:ndays
 
 ## initial conditions
@@ -80,6 +81,8 @@ C0=0
 ## Start values for steady state
 xstart <- c(S = S0, E = E0, I = I0, C = C0)
 
+xstart <- c(S = out2$S[30], E = out2$E[30], I = out2$I[30], C = out2$C[30])
+
 ## Solving single run
 # solve ODEs
 out <-  lsoda(xstart, times, SEI, parms) #tra gli argomenti ha la mia funzione che definisce il sistema differenziale
@@ -90,7 +93,8 @@ out2 <- as.data.frame(out)
 ks <- c(1000, 5000, 10000, 20000)
 for(i in 1:length(ks)){
   parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
-              FOIs = FOIs, v2 = mortality.rate.infection, tau = infection.rate,
+              snail_exposure = snail_exposure_rate, mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
+              v2 = mortality.rate.infection, tau = infection.rate,
               lambda = cerc.prod.rate, m = cerc.mortality)
   assign(paste("out_", ks[i], sep = ""),
   as.data.frame(lsoda(xstart, times, SEI, parms)))
@@ -219,7 +223,7 @@ legend("topright",
        horiz = F , 
        inset = c(0.1, 0.1))
 
-
+#Take solutions at the end of simulation only
 final_equil <- data.frame(k = ks,
                           S = c(out_1000[180, "S"], out_5000[180, "S"], out_10000[180, "S"], out_20000[180, "S"]),
                           E = c(out_1000[180, "E"], out_5000[180, "E"], out_10000[180, "E"], out_20000[180, "E"]),

@@ -166,21 +166,16 @@ results <- foreach(k = 1:seeds,
                        #'eggs' is the daily egg amount passed to the environment
                        # 24 is the conversion factor from egg counts and epg
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
-                       if(lim_mechanism == "snails"){
+                       
+                       if(DDF_strength == "no")
                          mu <- alpha*Tot_wp
-                         eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
-                       } 
+                       if(DDF_strength == "mild")
+                         mu <- hyp_sat(alpha, b, Tot_wp)
+                       if(DDF_strength == "strong")
+                         mu <- alpha*Tot_wp*expon_reduction(z, w=Tot_wp/2) 
                        
-                       if(lim_mechanism == "worms"){
-                         mu <- alpha*Tot_wp*exp(-z*(Tot_wp/2))
-                         eggs <- mu*24*gr_stool
-                       }
+                       eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
                        
-                       if(lim_mechanism == "humans"){
-                         mu <- alpha*Tot_wp*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
-                         eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
-                       } 
-                         
                        ########## 3. DIAGNOSIS 
                        pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu)  
                        
@@ -194,10 +189,10 @@ results <- foreach(k = 1:seeds,
                        #Miracidiae intake at step t by the reservoir
                        m_in[t] <- sum(pop$co)
                        
-                       if(lim_mechanism != "snails")
+                       if(snails == "no")
                          cercariae[t] <- m_in[t-1] 
                        
-                       if(lim_mechanism == "snails"){
+                       if(snails == "yes"){
                          #Run snails ODEs model
                          #in the final reservoir we have the output of cercariae
                          #we assume particles not infecting humans do not survive from the previous month
@@ -206,7 +201,7 @@ results <- foreach(k = 1:seeds,
                          #SEIC runs at daily time step
                          mirac.input = m_in[t-1] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a unique factor of 0.01
                          parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-                                     mir = mirac.input, l0 = max.invasion, chi = rej.prob,
+                                     mir = mirac.input, b = snail_transmission_rate,
                                      v2 = mortality.rate.infection, tau = infection.rate,
                                      lambda = cerc.prod.rate, m = cerc.mortality)
                          
@@ -241,10 +236,10 @@ results <- foreach(k = 1:seeds,
                        #Each individual assumes new worms nw (FOIh)
                        #One exposure rate per individual (based on age and ind. sus.)
                        pop$rate <- FOIh(l=cercariae[t], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
-                       if(lim_mechanism == "humans") #Immunity
-                         pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
-                         #(1-hyp_sat(alpha = imm, beta = 1, w = pop$cum_dwp))
-                       
+                       #Immunity:
+                       pop$rate <- pop$rate*expon_reduction(imm, pop$cum_dwp)
+                       #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
+                        
                        ########## 7. SAVE OUTPUT
                        # sink("Find_bug.txt", append=TRUE)
                        # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
@@ -256,7 +251,7 @@ results <- foreach(k = 1:seeds,
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
-                       if(lim_mechanism == "snails"){
+                       if(snails == "yes"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
                          tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
                        }
@@ -301,7 +296,7 @@ results <- foreach(k = 1:seeds,
                        pop$cum_dwp <- pop$cum_dwp + aging_3
                      }
                      
-                     filename <- paste("Ind_out_seed_", k, ".csv", sep="")
+                     filename <- paste("Ind_out_seed_", k, "_Imm=", imm, "Sn=", snails, "DDF=", DDF_strength, ".csv", sep="")
                      #Write
                      write.csv(ind_file, 
                                file.path(source.dir, "/Output/", filename),

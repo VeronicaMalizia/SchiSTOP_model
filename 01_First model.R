@@ -77,18 +77,19 @@ logistic <- function(k, w0, w){ #Logistic reduction function
   f <- 1 / (1 + exp(k*(w-w0)))
   return(f)
 }
-#plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1), ylab = "Reduction", xlab = "Number of worm pairs")
-exp_sat <- function(a, b, c, x){ #Exponential saturating function
-  f <- a*(1-exp(-b*x))*(1-exp(-c*x)) 
+expon_reduction <- function(alpha, w){
+  f <- exp(-alpha*w)
   return(f)
 }
+#plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1), ylab = "Reduction", xlab = "Number of worm pairs")
 SEI <- function(t, x, parms) {    
   with(as.list(c(parms, x)), {
     N <- S+E+I #is it better to work with densities?
     #Logistic growth
     #For population growing with limited amount of resources
     beta <- beta0*(1-N/k) #Infected snails do not reproduce
-    FOIs <- l0*(1-chi^(mir/N))
+    FOIs <- b*mir/N
+    #l0*(1-chi^(mir/N)) #Gurarie - non linear FOIs
     
     #Equations
     dS <- beta*(S+E) - (v+FOIs)*S #susceptible
@@ -108,7 +109,7 @@ emig_rate <- 20 #This is calibrated to have constant population
 #max.pop <- 1000
 k_w <- 0.15 #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
 v <- 1 #Transmission probability
-zeta <- 0.0005 #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+zeta <- 0.00009 #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
 ext.foi <- tibble(value = 1, #monthly
                   duration = 3) #years
 
@@ -117,11 +118,11 @@ pp <- 3 #Pre-patent period (months)
 phi <- 1-exp(-3/(Tw-pp)) #(monthly) proportion of adult worm pairs aging from age basket i to i+1, assuming 3 baskets 
 
 alpha <- 0.14 #expected number of eggs per sample per worm pair (Sake 1996)
+b <- 300 #eggs 
 gr_stool <- 150 #daily gr of stool produced by each human individual
 z <- 0.0007
 k_e <- 0.87 #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
 #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
-imm = 0.001 #immunity slope parameter
 w0_imm = 500 #4000 #immunity mid-sigmoid parameter
 mda <- tibble(age.lo = 5,
              age.hi = 15,
@@ -129,7 +130,7 @@ mda <- tibble(age.lo = 5,
              end = 170, #80,
              frequency = 1, #annual
              coverage = 0.75,
-             efficacy = 0.85)
+             efficacy = 0.86) #Turner (2017)
 fr <- 10 #frequency of individual output saving [years]
 
 ##Parameters for ODEs model for snails (These rates are daily)
@@ -142,9 +143,9 @@ mortality.rate = 1/lifespan
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
-rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
+snail_transmission_rate = 0.01 #a combined version of exposure rate and probability of success. invasion
+#rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
 # (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
-# However, I would consider it arbitrary too and then to be estimated. (Or look for data)
 max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d 
@@ -191,17 +192,24 @@ S0=snail.pop - sum(E0, I0)
 C0=0
 
 T <- 200 #number of years
-seeds <- 30
+seeds <- 10
 
-#Empty the Output folder
-unlink(file.path(source.dir, "/Output/*")) 
+#Empty the Output folder (if needed)
+#unlink(file.path(source.dir, "/Output/*")) 
+
+#SETTING THE SCENARIO
+#Anti-reinfection immunity: choose 0=no,	0.00005=mild, 0.0001=strong
+imm = 0.0001 #immunity slope parameter
+#Snails 
+snails = "no" #Choose "yes" or "no"
+#If snails is on choose k=xx : mild, k=xx : strong
+if(snails == "yes")
+  carrying.capacity = 20000
+#Density-dependent fecundity
+#Choose DDF level: 'no', 'mild', 'strong'      
+DDF_strength <- "mild"
 
 #Run the model
-lim_mechanism <- c("worms") #choices: 'worms' (for DDF), 
-                             #'snails' (for vect. saturation), 
-                             #'humans' (for immunity), 
-                            
-
 time.start <- Sys.time()
 source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\01.a_Model_function.R")
 time.end <- Sys.time()
@@ -210,7 +218,9 @@ time.end - time.start
 #Population-level results
 #Collating results (only if seeds>1)
 res <- bind_rows(results)
-
+save(res, file = file.path(source.dir, 
+                           paste("/Population_output/Res", 
+                                 "_Imm=", imm, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
 #Average results over stochastic simulations
 
 #Check if there are faded out runs
@@ -261,7 +271,7 @@ Fig +
   coord_cartesian(xlim=c(145, 165)) 
 
 #Saving image
-tiff("Plots/Limiting mechanisms/Prevalence_Snails.tif", width=7, height=6, units = "in", res = 300)
+tiff("Plots/Modeling scenarios/IMM_mild/Prevalence_HIGHsetting.tif", width=7, height=6, units = "in", res = 300)
 Fig
 dev.off()
 
@@ -338,7 +348,7 @@ data_all <- list.files(path = file.path(source.dir, "/Output/"),  # Identify all
 #Aggregate by age groups
 #Filter one year of interest
 unique(data_all$time) #individual output contains time in years
-years <- c(81, 101, 151, 181) #c(51, 81, 101, 151, 161, 171, 181, 191)
+years <- c(81, 101, 171, 191) #c(51, 81, 101, 151, 161, 171, 181, 191)
 age_out <- data_all %>%
   filter(time %in% years) %>%
   #filter(seed %!in% dead.seeds) %>%
@@ -397,7 +407,7 @@ rate <- ggplot(age_out)+
   #coord_cartesian(ylim = c(0, 200000)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-tiff(file.path(source.dir, "/Plots/Limiting mechanisms/Boxplots_Snails.tif"), width=9, height=8, units = "in", res = 300)
+tiff(file.path(source.dir, "/Plots/Modeling scenarios/IMM_mild/Boxplots_HIGHsetting.tif"), width=9, height=8, units = "in", res = 300)
 eggs / worms / rate + 
   plot_annotation(title = paste("Limiting mechanism on", lim_mechanism, sep = " "))
 dev.off()

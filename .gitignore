@@ -47,3 +47,4 @@ vignettes/*.pdf
 # Output and Plots folder
 /Output*
 /Plots/
+/Population_output/
