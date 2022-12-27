@@ -43,7 +43,7 @@ SEI <- function(t, x, parms) {
 ## Parameters
 #ENV = 500 #L, total volume of water
 max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
-carrying.capacity = 20000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
+carrying.capacity = 10000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
 lifespan = 100 #days, Civitello #Gurarie: about 3 months
 lifespan.infected = 30 #days, Gurarie
 mortality.rate = 1/lifespan 
@@ -60,13 +60,13 @@ cerc.mortality = 1 #1/d
 
 mirac.input = 30000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-            b = snail_transmission_rate, mir = mirac.input, l0 = max.invasion, #chi = rej.prob, 
+            b = snail_transmission_rate, mir = mirac.input, #l0 = max.invasion, #chi = rej.prob, 
             v2 = mortality.rate.infection, tau = infection.rate,
             lambda = cerc.prod.rate, m = cerc.mortality)
 
 ## vector of time steps
 #I have to stick to monthly time step as in the main module.
-ndays=30
+ndays=300
 times <- 1:ndays
 
 ## initial conditions

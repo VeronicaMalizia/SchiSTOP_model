@@ -3,7 +3,8 @@
 #Date: 27/07/2021
 #R version: 3.6.1
 
-#This script contains model specification and is called into the main script 01_First\model.R
+#This script contains the model specification 
+#It is called and launched into the main script 01_First\model.R
 #
 #############################
 
@@ -16,6 +17,7 @@ writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
+clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
 results <- foreach(k = 1:seeds,
@@ -48,8 +50,9 @@ results <- foreach(k = 1:seeds,
                      eggs_prev <- c(0)
                      eggs_prev_SAC <- c(0)
                      Heggs_prev <- c(0)
-                     inf_snail <- c(0)
-                     tot_snail <- snail.pop
+                     inf_snail <- I0
+                     susc_snail <- S0
+                     exp_snail <- E0
                      
                      #Create initial cloud
                      #Initialize quantities
@@ -75,12 +78,12 @@ results <- foreach(k = 1:seeds,
                        ########## BIRTHS
                        # (births and migration: deterministic processed -> fixed rate)
                        #for now birth rate does not depend on age-specific female fertility
-                       births <- round(birth_rate*(nrow(pop)/1000)/12)
+                       births <- round(parms$demography$birth_rate*(nrow(pop)/1000)/12)
                        #new born
                        nb <- tibble(age=rep(0, births),
                                     sex=as.numeric(rbernoulli(births, 0.5)),
                                     jw1 = rep(0, births),
-                                    Ind_sus = rgamma(births, shape = k_w, scale = 1/k_w),
+                                    Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
                                     ID = c((ever_lived+1):(ever_lived+births)),
                                     death_age = 150,
                                     rate = rep(0, births),
@@ -122,7 +125,7 @@ results <- foreach(k = 1:seeds,
                        
                        ########## MIGRATION
                        #For now we do not account for age-specific emigration
-                       lambda <- round(emig_rate*(nrow(pop)/1000)/12)
+                       lambda <- round(parms$demography$emig_rate*(nrow(pop)/1000)/12)
                        emig_age <- which(pop$age>5&pop$age<55)
                        emigrated <- sample(emig_age, lambda)
                        if(length(emigrated)>0)
@@ -143,14 +146,14 @@ results <- foreach(k = 1:seeds,
                        killed_worms1 <- 0
                        killed_worms2 <- 0
                        killed_worms3 <- 0
-                       if(t %in% c(12*seq(mda$start, mda$end, mda$frequency))){
-                         target <- which(pop$age >= mda$age.lo & pop$age <= mda$age.hi)
-                         treated <- sample(target, mda$coverage*length(target)) #index of individuals
+                       if(t %in% c(12*seq(parms$mda$start, parms$mda$end, parms$mda$frequency))){
+                         target <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi)
+                         treated <- sample(target, parms$mda$coverage*length(target)) #index of individuals
                          n_treated <- length(treated)
                          #Killing of worms in the three age baskets:
-                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = mda$efficacy)
-                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = mda$efficacy)
-                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = mda$efficacy)
+                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
+                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = parms$mda$efficacy)
+                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = parms$mda$efficacy)
                          pop$wp1[treated] <- pop$wp1[treated] - killed_worms1
                          pop$wp2[treated] <- pop$wp2[treated] - killed_worms2
                          pop$wp3[treated] <- pop$wp3[treated] - killed_worms3
@@ -167,17 +170,12 @@ results <- foreach(k = 1:seeds,
                        # 24 is the conversion factor from egg counts and epg
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
-                       if(DDF_strength == "no")
-                         mu <- alpha*Tot_wp
-                       if(DDF_strength == "mild")
-                         mu <- hyp_sat(alpha, b, Tot_wp)
-                       if(DDF_strength == "strong")
-                         mu <- alpha*Tot_wp*expon_reduction(z, w=Tot_wp/2) 
+                       mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
                        
-                       eggs <- mu*24*gr_stool #daily quantity, since particles in the environment are short-lived
+                       eggs <- mu*24*parms$parasite$eggs$gr_stool #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
-                       pop$ec <- rnbinom(nrow(pop), size=k_e, mu=mu)  
+                       pop$ec <- rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
@@ -189,10 +187,10 @@ results <- foreach(k = 1:seeds,
                        #Miracidiae intake at step t by the reservoir
                        m_in[t] <- sum(pop$co)
                        
-                       if(snails == "no")
+                       if(snails == "Absent")
                          cercariae[t] <- m_in[t-1] 
                        
-                       if(snails == "yes"){
+                       if(snails != "Absent"){
                          #Run snails ODEs model
                          #in the final reservoir we have the output of cercariae
                          #we assume particles not infecting humans do not survive from the previous month
@@ -200,10 +198,15 @@ results <- foreach(k = 1:seeds,
                          #Call parameters and initial conditions
                          #SEIC runs at daily time step
                          mirac.input = m_in[t-1] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a unique factor of 0.01
-                         parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
-                                     mir = mirac.input, b = snail_transmission_rate,
-                                     v2 = mortality.rate.infection, tau = infection.rate,
-                                     lambda = cerc.prod.rate, m = cerc.mortality)
+                         parms.ODE  <- c(beta0 = parms$snails$max.reproduction.rate, 
+                                         k = parms$snails$carrying.capacity, 
+                                         v = parms$snails$mortality.rate,
+                                         mir = mirac.input, 
+                                         b = parms$snails$snail_transmission_rate,
+                                         v2 = parms$snails$mortality.rate.infection, 
+                                         tau = parms$snails$infection.rate,
+                                         lambda = parms$snails$cerc.prod.rate, 
+                                         m = parms$snails$cerc.mortality)
                          
                          #Set initial conditions from the last day of previous run/month
                          S0 = newstart[1]
@@ -217,7 +220,7 @@ results <- foreach(k = 1:seeds,
                          xstart <- c(S = S0, E = E0, I = I0, C = C0)
                          
                          #Run and solve
-                         out <-  lsoda(xstart, times, SEI, parms) 
+                         out <-  lsoda(xstart, times, SEI, parms.ODE) 
                          
                          ## Translate the output into a data.frame
                          out2 <- as.data.frame(out)
@@ -235,9 +238,9 @@ results <- foreach(k = 1:seeds,
                        ########## 6. EXPOSURE OF HUMANS 
                        #Each individual assumes new worms nw (FOIh)
                        #One exposure rate per individual (based on age and ind. sus.)
-                       pop$rate <- FOIh(l=cercariae[t], zeta, v, a=pop$age, is=pop$Ind_sus)/cum_exp
+                       pop$rate <- FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)/cum_exp
                        #Immunity:
-                       pop$rate <- pop$rate*expon_reduction(imm, pop$cum_dwp)
+                       pop$rate <- pop$rate*expon_reduction(parms$immunity$imm, pop$cum_dwp)
                        #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                         
                        ########## 7. SAVE OUTPUT
@@ -251,9 +254,10 @@ results <- foreach(k = 1:seeds,
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
-                       if(snails == "yes"){
+                       if(snails != "Absent"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
-                         tot_snail[t] <- (out2$S[nrow(out2)]+out2$E[nrow(out2)]+out2$I[nrow(out2)])
+                         susc_snail[t] <- out2$S[nrow(out2)]
+                         exp_snail[t] <- out2$E[nrow(out2)]
                        }
                        
                        #Save annual individual output
@@ -262,7 +266,10 @@ results <- foreach(k = 1:seeds,
                                            select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
                                              mutate(tot_wp = wp1+wp2+wp3,
                                                     time = t/12, #years
-                                                    seed = k))
+                                                    seed = k,
+                                                    Immunity = imm_strength,
+                                                    Snails = snails,
+                                                    DDF = DDF_strength))
                        }
                        
                        ########## 8. WORMS UPDATE (for next month)
@@ -278,15 +285,15 @@ results <- foreach(k = 1:seeds,
                        
                        #First stage juveniles(new acquired)
                        pop$jw1 <- rpois(nrow(pop), pop$rate) 
-                       if(t < ext.foi$duration*12)
-                         pop$jw1 <- pop$jw1 + round(ext.foi$value*pop$Ind_sus)
+                       if(t < parms$parasite$ext.foi$duration*12)
+                         pop$jw1 <- pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
                        
                        ### Adults worm pairs
                        # Aging of worms: Erlang distributed lifespans
                        # Three baskets: wp1, wp2, wp3, three aging groups
-                       aging_1 <- rbinom(nrow(pop), pop$wp1, phi)
-                       aging_2 <- rbinom(nrow(pop), pop$wp2, phi)
-                       aging_3 <- rbinom(nrow(pop), pop$wp3, phi) #dying_pairs
+                       aging_1 <- rbinom(nrow(pop), pop$wp1, parms$parasite$phi)
+                       aging_2 <- rbinom(nrow(pop), pop$wp2, parms$parasite$phi)
+                       aging_3 <- rbinom(nrow(pop), pop$wp3, parms$parasite$phi) #dying_pairs
                        
                        pop$wp1 <- pop$wp1 + new_pairs - aging_1
                        pop$wp2 <- pop$wp2 + aging_1 - aging_2
@@ -296,14 +303,17 @@ results <- foreach(k = 1:seeds,
                        pop$cum_dwp <- pop$cum_dwp + aging_3
                      }
                      
-                     filename <- paste("Ind_out_seed_", k, "_Imm=", imm, "Sn=", snails, "DDF=", DDF_strength, ".csv", sep="")
+                     filename <- paste("Ind_out_seed_", k, "_Imm=", imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".csv", sep="")
                      #Write
                      write.csv(ind_file, 
-                               file.path(source.dir, "/Output/", filename),
+                               file.path(output.dir, filename),
                                row.names = F)
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(k, (12*T)),
+                                   Immunity = rep(imm_strength, (12*T)),
+                                   Snails = rep(snails, (12*T)),
+                                   DDF= rep(DDF_strength, (12*T)),
                                    pop_size = N,
                                    miracidiae = m_in, 
                                    cercariae = cercariae,
@@ -312,7 +322,8 @@ results <- foreach(k = 1:seeds,
                                    eggs_prev_SAC = eggs_prev_SAC,
                                    Heggs_prev = Heggs_prev,
                                    inf_snail = inf_snail,
-                                   tot_snail = tot_snail)
+                                   susc_snail = susc_snail,
+                                   exp_snail = exp_snail)
                    }
 
 stopCluster(cluster)
