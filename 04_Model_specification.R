@@ -40,8 +40,7 @@ results <- foreach(k = 1:seeds,
                               jw2 = 0,
                               jw3 = 0,
                               cum_dwp = 0,
-                              ec = 0,
-                              co = contributions0) #female worms
+                              ec = 0) #female worms
                      N <- nrow(pop)
                      ever_lived <- N
                      SAC <- which(pop$age >= 5 & pop$age <= 15)
@@ -73,30 +72,29 @@ results <- foreach(k = 1:seeds,
                        
                        #Beginning of each month, update demography
                        ########## AGING
-                       pop$age <- pop$age + 1/12
+                       pop$age = pop$age + 1/12
                        
                        ########## BIRTHS
                        # (births and migration: deterministic processed -> fixed rate)
                        #for now birth rate does not depend on age-specific female fertility
                        births <- round(parms$demography$birth_rate*(nrow(pop)/1000)/12)
                        #new born
-                       nb <- data.frame(age=0,
-                                    sex=as.numeric(rbernoulli(births, 0.5)),
-                                    jw1 = 0,
-                                    Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
-                                    ID = c((ever_lived+1):(ever_lived+births)),
-                                    death_age = 150,
-                                    rate = 0,
-                                    wp1 = 0,
-                                    wp2 = 0,
-                                    wp3 = 0,
-                                    jw2 = 0,
-                                    jw3 = 0,
-                                    cum_dwp = 0,
-                                    ec = 0,
-                                    co = 0)
 
-                       pop <- bind_rows(pop, nb)
+                       pop <- bind_rows(pop, 
+                                        data.frame(age=0,
+                                                   sex=as.numeric(rbernoulli(births, 0.5)),
+                                                   jw1 = 0,
+                                                   Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+                                                   ID = c((ever_lived+1):(ever_lived+births)),
+                                                   death_age = 150,
+                                                   rate = 0,
+                                                   wp1 = 0,
+                                                   wp2 = 0,
+                                                   wp3 = 0,
+                                                   jw2 = 0,
+                                                   jw3 = 0,
+                                                   cum_dwp = 0,
+                                                   ec = 0))
                        ever_lived <- ever_lived+births
                        
                        ########## DEATHS
@@ -113,15 +111,13 @@ results <- foreach(k = 1:seeds,
                            #if(pop$sex[i]==1){
                              if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
                                death_month <- runif(1, 1, 12)
-                               pop$death_age[i] <- pop$age[i] + death_month/12
+                               pop$death_age[i] = pop$age[i] + death_month/12
                              }
                            #}
                          }
                        }
 
-                       tmp <- which(pop$age >= pop$death_age)
-                       if(length(tmp)>0)
-                         pop <- pop[-tmp,]
+                       pop <- filter(pop, age < death_age)
                        
                        ########## MIGRATION
                        #For now we do not account for age-specific emigration
@@ -154,10 +150,10 @@ results <- foreach(k = 1:seeds,
                          killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
                          killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = parms$mda$efficacy)
                          killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = parms$mda$efficacy)
-                         pop$wp1[treated] <- pop$wp1[treated] - killed_worms1
-                         pop$wp2[treated] <- pop$wp2[treated] - killed_worms2
-                         pop$wp3[treated] <- pop$wp3[treated] - killed_worms3
-                         pop$cum_dwp[treated] <- pop$cum_dwp[treated] + 
+                         pop$wp1[treated] = pop$wp1[treated] - killed_worms1
+                         pop$wp2[treated] = pop$wp2[treated] - killed_worms2
+                         pop$wp3[treated] = pop$wp3[treated] - killed_worms3
+                         pop$cum_dwp[treated] = pop$cum_dwp[treated] + 
                            killed_worms1 + killed_worms2 + killed_worms3
                        }
                        
@@ -175,17 +171,19 @@ results <- foreach(k = 1:seeds,
                        eggs <- mu*24*parms$parasite$eggs$gr_stool #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
-                       pop$ec <- rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
+                       pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
                        #Eggs are passed to the intestine and released in the environment
                        # TIP: I can add a delay in eggs' excretion
-                       pop$co <- round(eggs * Age_profile_contr(pop$age)$y)
+                       
+                       #We can skip contribution, we assume here that contribution is not dependent on age
+                       #pop$co <- round(eggs * Age_profile_contr(pop$age)$y)
                        
                        ########## 5. LIFE IN THE ENVIRONMENTAL RESERVOIR
                        #Miracidiae intake at step t by the reservoir
-                       m_in[t] <- sum(pop$co)
+                       m_in[t] <- sum(eggs)
                        
                        if(snails == "Absent")
                          cercariae[t] <- m_in[t-1] 
@@ -236,11 +234,9 @@ results <- foreach(k = 1:seeds,
                        }
                        
                        ########## 6. EXPOSURE OF HUMANS 
-                       #Each individual assumes new worms nw (FOIh)
+                       #Each individual assumes new worms (FOIh) and immunity applies
                        #One exposure rate per individual (based on age and ind. sus.)
-                       pop$rate <- FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)/cum_exp
-                       #Immunity:
-                       pop$rate <- pop$rate*expon_reduction(parms$immunity$imm, pop$cum_dwp)
+                       pop$rate = FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
                        #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                         
                        ########## 7. SAVE OUTPUT
@@ -263,7 +259,7 @@ results <- foreach(k = 1:seeds,
                        #Save annual individual output
                        if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
                          ind_file <- rbind(ind_file,
-                                           select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, co, cum_dwp) %>%
+                                           select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
                                              mutate(tot_wp = wp1+wp2+wp3,
                                                     time = t/12, #years
                                                     seed = k,
@@ -280,13 +276,13 @@ results <- foreach(k = 1:seeds,
                        malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
                        new_pairs <- pmin(malesnw, pop$jw3) #From here on we track worm pairs as units. 
                        
-                       pop$jw3 <- pop$jw2 
-                       pop$jw2 <- pop$jw1 
+                       pop$jw3 = pop$jw2 
+                       pop$jw2 = pop$jw1 
                        
                        #First stage juveniles(new acquired)
-                       pop$jw1 <- rpois(nrow(pop), pop$rate) 
+                       pop$jw1 = rpois(nrow(pop), pop$rate) 
                        if(t < parms$parasite$ext.foi$duration*12)
-                         pop$jw1 <- pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
+                         pop$jw1 = pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
                        
                        ### Adults worm pairs
                        # Aging of worms: Erlang distributed lifespans
@@ -295,12 +291,12 @@ results <- foreach(k = 1:seeds,
                        aging_2 <- rbinom(nrow(pop), pop$wp2, parms$parasite$phi)
                        aging_3 <- rbinom(nrow(pop), pop$wp3, parms$parasite$phi) #dying_pairs
                        
-                       pop$wp1 <- pop$wp1 + new_pairs - aging_1
-                       pop$wp2 <- pop$wp2 + aging_1 - aging_2
-                       pop$wp3 <- pop$wp3 + aging_2 - aging_3
+                       pop$wp1 = pop$wp1 + new_pairs - aging_1
+                       pop$wp2 = pop$wp2 + aging_1 - aging_2
+                       pop$wp3 = pop$wp3 + aging_2 - aging_3
                        
                        # Cumulated death worm pairs
-                       pop$cum_dwp <- pop$cum_dwp + aging_3
+                       pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
                      filename <- paste("Ind_out_seed_", k, "_Imm=", imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".csv", sep="")
