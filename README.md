@@ -1,11 +1,6 @@
 # Schisto_model
-Transmission model of Schistosomiasis
+Transmission model of Schistosomiasis, ABM for human dynamics and ODE-based module for the snail population dynamics.
 
-## First model for Schistosomiasis transmission
-The main branch is up to date with the SEI_model_snails.
+First open the .Rproj 
+File 05 contains the script to run the model save results.
 
-File 01 contains the main script to run the model and within the code it calls file 01.a providing the model specification.
-
-Files 00* are the demography only, without transmission dynamics. Initial explorations. None of these methods is currently used.
-
-File 02 explores snail population dynamics through the ODEs-based SEI model. 
