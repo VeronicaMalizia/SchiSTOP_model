@@ -20,6 +20,7 @@ library(ggridges)
 library(foreach)
 library(doParallel)
 library(patchwork)
+library(profvis)
 
 ################
 #Initial population

@@ -27,11 +27,11 @@ results <- foreach(k = 1:seeds,
                    #.combine = bind_rows,
                    .packages = c("tidyverse", "deSolve")) %dopar% {
                      #for each seed:
-                     
+                  profvis({   
                      #Time step events, for each individual
-                     #Initialize
-                     pop <- cohort %>%
-                       mutate(ID = c(1:nrow(cohort)),
+                     #Initialize population
+                     pop <- cbind(cohort, #%>%
+                              ID = c(1:nrow(cohort)),
                               death_age = 150,
                               rate = 0,
                               wp1 = 0,
@@ -80,21 +80,21 @@ results <- foreach(k = 1:seeds,
                        #for now birth rate does not depend on age-specific female fertility
                        births <- round(parms$demography$birth_rate*(nrow(pop)/1000)/12)
                        #new born
-                       nb <- tibble(age=rep(0, births),
+                       nb <- data.frame(age=0,
                                     sex=as.numeric(rbernoulli(births, 0.5)),
-                                    jw1 = rep(0, births),
+                                    jw1 = 0,
                                     Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
                                     ID = c((ever_lived+1):(ever_lived+births)),
                                     death_age = 150,
-                                    rate = rep(0, births),
-                                    wp1 = rep(0, births),
-                                    wp2 = rep(0, births),
-                                    wp3 = rep(0, births),
-                                    jw2 = rep(0, births),
-                                    jw3 = rep(0, births),
-                                    cum_dwp = rep(0, births),
-                                    ec = rep(0, births),
-                                    co = rep(0, births))
+                                    rate = 0,
+                                    wp1 = 0,
+                                    wp2 = 0,
+                                    wp3 = 0,
+                                    jw2 = 0,
+                                    jw3 = 0,
+                                    cum_dwp = 0,
+                                    ec = 0,
+                                    co = 0)
 
                        pop <- bind_rows(pop, nb)
                        ever_lived <- ever_lived+births
@@ -104,18 +104,18 @@ results <- foreach(k = 1:seeds,
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
 
                          for(i in 1:nrow(pop)){
-                           if(pop$sex[i]==0){
-                             if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
-                               death_month <- runif(1, 1, 12)
-                               pop$death_age[i] <- pop$age[i] + death_month/12
-                             }
-                           }
-                           if(pop$sex[i]==1){
+                           # if(pop$sex[i]==0){
+                           #   if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
+                           #     death_month <- runif(1, 1, 12)
+                           #     pop$death_age[i] <- pop$age[i] + death_month/12
+                           #   }
+                           # }
+                           #if(pop$sex[i]==1){
                              if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
                                death_month <- runif(1, 1, 12)
                                pop$death_age[i] <- pop$age[i] + death_month/12
                              }
-                           }
+                           #}
                          }
                        }
 
@@ -324,6 +324,7 @@ results <- foreach(k = 1:seeds,
                                    inf_snail = inf_snail,
                                    susc_snail = susc_snail,
                                    exp_snail = exp_snail)
+                  })
                    }
 
 stopCluster(cluster)

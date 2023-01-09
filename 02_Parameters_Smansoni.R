@@ -10,7 +10,7 @@
 parms <- list(#Demography
               demography = list(birth_rate = 36.5,
                                 emig_rate = 20),
-              #This is crude annual birth rate Uganda 2019 (same y of available lifetables), 34.8 for Sub-Saharan Africa (per 1000 individuals)
+              #This is crude annual birth rate Uganda 2019 (same y of available life tables), 34.8 for Sub-Saharan Africa (per 1000 individuals)
               #-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
               #The emigration rate is calibrated to have constant population
               
