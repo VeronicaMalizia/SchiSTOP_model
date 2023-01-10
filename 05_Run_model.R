@@ -70,6 +70,7 @@ cohort <- cohort %>%
   mutate(jw1 = 1, 
          Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w))
 
+
 #Environment is initialized as empty
 eggs0 <- 0
 contributions0 <- 0
@@ -90,7 +91,7 @@ C0=0
 #Simulation settings
 ################
 T <- 300 #number of years simulated
-seeds <- 1
+seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
 
 ################
