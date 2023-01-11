@@ -97,31 +97,18 @@ fr <- 10 #frequency for printing to file the individual output [years]
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
 ################
-#For each scenario, choose level: 'No', 'Mild', 'Strong'
-#Anti-reinfection immunity
-imm_strength <- "Strong"
-parms$immunity$imm = case_when(imm_strength== "Absent" ~ 0,
-                               imm_strength== "Mild" ~ 0.0005,
-                               imm_strength== "Strong" ~ 0.005) #immunity slope parameter
+#For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
+#Cominations of modelling scenarios and stochastic seed
 
-#Snails 
-snails = "Strong" #Choose "yes" or "no"
-#If snails is on choose k=20000 (more snails - less limitation), k=10000 : strong (less snails - more limitation)
-parms$snails$carrying.capacity = case_when(snails == "Absent" ~ 1, #No module
-                                           snails == "Mild" ~ 20000,
-                                           snails == "Strong" ~ 10000)
-#Density-dependent fecundity (DDF)
-load("Matched_alphas.RData")
-DDF_strength <- "Absent"
-parms$parasite$eggs$alpha = case_when(DDF_strength== "Absent" ~ alpha_lin,
-                                      DDF_strength== "Mild" ~ alpha_exp,
-                                      DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
-parms$parasite$eggs$z = case_when(DDF_strength== "Absent" ~ 0,
-                                  DDF_strength== "Mild" ~ 0.0007,
-                                  DDF_strength== "Strong" ~ 0.004) #severity of density dependency
+stoch_scenarios <- expand.grid(list(seed = 1:seeds,
+                                    DDF_strength = c("Absent", "Mild", "Strong"),
+                                    imm_strength = c("Absent", "Mild", "Strong"),
+                                    snails = c("Absent", "Mild", "Strong")))
 
+#Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-parms$parasite$zeta = 0.004 #overall exposure rate. 
+zetas <- read_excel("Zetas.xlsx")
+stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
 ################
 #Set output directory to save results

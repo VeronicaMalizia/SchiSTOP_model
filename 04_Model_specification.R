@@ -16,16 +16,40 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
+#Load matched alphas for Density-dependent fecundity (DDF)
+load("Matched_alphas.RData")
+
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
 clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
-results <- foreach(k = 1:seeds,
+results <- foreach(k = 1:nrow(stoch_scenarios),
                    .inorder = TRUE,
                    .errorhandling = "pass", #remove or pass
                    .verbose = TRUE,
-                   #.combine = bind_rows,
+                   #.combine = bind_rows, #default is a list
                    .packages = c("tidyverse", "deSolve")) %dopar% {
+                     
+                     #set scenario-specific parameters
+                     scen <- stoch_scenarios[k, ]
+                     parms$parasite$zeta = scen$zeta #overall exposure rate.  
+                     parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
+                                                    scen$imm_strength== "Mild" ~ 0.0005,
+                                                    scen$imm_strength== "Strong" ~ 0.005) #immunity slope parameter
+                     parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No module
+                                                                scen$snails == "Mild" ~ 20000,
+                                                                scen$snails == "Strong" ~ 10000)
+                     parms$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
+                                                           scen$DDF_strength== "Mild" ~ alpha_exp,
+                                                           scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
+                     parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
+                                                       scen$DDF_strength== "Mild" ~ 0.0007,
+                                                       scen$DDF_strength== "Strong" ~ 0.004) #severity of density dependency
+                     
+                     sink("Sink.txt", append=TRUE)
+                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                     sink()
+                     
                      #for each seed:
                      
                      #profvis({   
@@ -62,10 +86,6 @@ results <- foreach(k = 1:seeds,
                        cercariae <- 0 #to eventually plot the cercariae (cloud)
                        ind_file <- c()
                        for(t in 2:(12*T)){
-                         
-                         sink("Sink.txt", append=TRUE)
-                         cat(paste(Sys.time(), ": Starting seed", k, "time step", t, "\n", sep = " "))
-                         sink()
                          
                          ###########################################
                          #Demography
@@ -186,10 +206,10 @@ results <- foreach(k = 1:seeds,
                          #Miracidiae intake at step t by the reservoir
                          m_in[t] <- sum(eggs)
                          
-                         if(snails == "Absent")
+                         if(scen$snails == "Absent")
                            cercariae[t] <- m_in[t-1] 
                          
-                         if(snails != "Absent"){
+                         if(scen$snails != "Absent"){
                            #Run snails ODEs model
                            #in the final reservoir we have the output of cercariae
                            #we assume particles not infecting humans do not survive from the previous month
@@ -251,7 +271,7 @@ results <- foreach(k = 1:seeds,
                          eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                          eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                          Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
-                         if(snails != "Absent"){
+                         if(scen$snails != "Absent"){
                            inf_snail[t] <- out2$I[nrow(out2)] 
                            susc_snail[t] <- out2$S[nrow(out2)]
                            exp_snail[t] <- out2$E[nrow(out2)]
@@ -263,10 +283,10 @@ results <- foreach(k = 1:seeds,
                                              select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
                                                mutate(tot_wp = wp1+wp2+wp3,
                                                       time = t/12, #years
-                                                      seed = k,
-                                                      Immunity = imm_strength,
-                                                      Snails = snails,
-                                                      DDF = DDF_strength))
+                                                      seed = scen$seed,
+                                                      Immunity = scen$imm_strength,
+                                                      Snails = scen$snails,
+                                                      DDF = scen$DDF_strength))
                          }
                          
                          ########## 8. WORMS UPDATE (for next month)
@@ -300,17 +320,20 @@ results <- foreach(k = 1:seeds,
                          pop$cum_dwp = pop$cum_dwp + aging_3
                        }
                        
-                       filename <- paste("Ind_out_seed_", k, "_Imm=", imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".csv", sep="")
+                       filename <- paste("Ind_out_seed_", scen$seed, 
+                                         "_Imm=", scen$imm_strength, 
+                                         "Sn=", scen$snails, 
+                                         "DDF=", scen$DDF_strength, ".csv", sep="")
                        #Write
                        write.csv(ind_file, 
                                  file.path(output.dir, filename),
                                  row.names = F)
                        
                        res <- tibble(time = 1:(12*T),
-                                     seed = rep(k, (12*T)),
-                                     Immunity = rep(imm_strength, (12*T)),
-                                     Snails = rep(snails, (12*T)),
-                                     DDF= rep(DDF_strength, (12*T)),
+                                     seed = rep(scen$seed, (12*T)),
+                                     Immunity = rep(scen$imm_strength, (12*T)),
+                                     Snails = rep(scen$snails, (12*T)),
+                                     DDF= rep(scen$DDF_strength, (12*T)),
                                      pop_size = N,
                                      miracidiae = m_in, 
                                      cercariae = cercariae,
