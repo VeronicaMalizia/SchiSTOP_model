@@ -98,7 +98,7 @@ fr <- 10 #frequency for printing to file the individual output [years]
 #SETTING THE MODELLING SCENARIO: limiting mechanism
 ################
 #For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
-#Cominations of modelling scenarios and stochastic seed
+#Combinations of modelling scenarios and stochastic seed
 
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),

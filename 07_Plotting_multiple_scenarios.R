@@ -11,16 +11,16 @@ geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
 #SETTING THE SCENARIO
-#Anti-reinfection immunity: choose 0=no,	0.00005=mild, 0.0001=strong
-imm = 0 #immunity slope parameter
-#Snails 
-snails = "yes" #Choose "yes" or "no"
-#If snails is on choose k=20000 : mild, k=xx : strong
-if(snails == "yes")
-  carrying.capacity = 10000
-#Density-dependent fecundity
-#Choose DDF level: 'no', 'mild', 'strong'      
-DDF_strength <- "no"
+
+stoch_scenarios <- expand.grid(list(seed = 1:seeds,
+                                    DDF_strength = c("Absent", "Mild", "Strong"),
+                                    imm_strength = c("Absent", "Mild", "Strong"),
+                                    snails = c("Absent", "Mild", "Strong")))
+
+#Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
+#Transmission parameters for tuning endemicity
+zetas <- read_excel("Zetas.xlsx")
+stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
 #Set folder
 source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
@@ -30,19 +30,8 @@ setwd(source.dir)
 #Prevalence timelines
 #Load population output
 #####Load collated results and produce multi-panel plots
-setwd(file.path(source.dir, "Population_output"))
-imm_strength <- "Strong"
-snails <- "Strong"
 
-DDF_strength <- "Absent"
-load(file.path(source.dir, 
-               paste("/Population_output/Imm", 
-                     imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
-res1 <- res %>%
-  mutate(Immunity = imm_strength,
-         Snails = snails,
-         DDF = DDF_strength)
-DDF_strength <- "Mild"
+setwd(file.path(source.dir, "Population_output"))
 load(file.path(source.dir, 
                paste("/Population_output/Imm", 
                      imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
@@ -63,7 +52,8 @@ data9 <- bind_rows(res1, res2, res3)
 data <- bind_rows(data1, data2, data3,
                   data4, data5, data6,
                   data7, data8, data9)
-data_avg <- data %>%
+#Average by seed
+data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             PHI = mean(Heggs_prev),
@@ -73,18 +63,17 @@ write.csv(data, file = "Population data_collated scenarios.csv")
 #Plot prevalence
 
 #Let's create an additional data frame to hold the text annotations:
-zetas <- read_excel("Zetas.xlsx")
-zetas <- zetas %>%
+text <- zetas %>%
   group_by(Snails, Immunity) %>%
   summarise(Snail_prevalence = list(`Snail prevalence`)) 
-zetas$Snail_prevalence[1:3] = NA
-my_tag <- paste("Snail prevalence:\n", zetas$Snail_prevalence)
+text$Snail_prevalence[1:3] = NA
+my_tag <- paste("Snail prevalence:\n", text$Snail_prevalence)
 
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
   labs(title = "Moderate endemicity setting") +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  geom_text(data=zetas, aes(x=200, y=80, label=my_tag), 
+  geom_text(data=text, aes(x=200, y=80, label=my_tag), 
             size=3) +
   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
                      breaks = seq(0, 100, 20),
@@ -117,7 +106,7 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=PHI*100, colour = DDF)) +
   labs(title = "Moderate endemicity setting") +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  geom_text(data=zetas, aes(x=200, y=80, label=my_tag), 
+  geom_text(data=text, aes(x=200, y=80, label=my_tag), 
             size=3) +
   scale_y_continuous(name = "Prevalence of heavy infections (%) \n",
                      breaks = seq(0, 10, 2),
