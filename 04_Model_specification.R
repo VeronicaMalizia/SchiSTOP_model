@@ -40,8 +40,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                            scen$DDF_strength== "Mild" ~ alpha_exp,
                                                            scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
                      parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
-                                                       scen$DDF_strength== "Mild" ~ 0.0007,
-                                                       scen$DDF_strength== "Strong" ~ 0.004) #severity of density dependency
+                                                       scen$DDF_strength== "Mild" ~ 0.0005,
+                                                       scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
                      
                      sink("Sink.txt", append=TRUE)
                      cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))

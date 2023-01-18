@@ -116,7 +116,8 @@ load("Matched_alphas_moderate.RData")
 ################
 #Set output directory to save results
 ################
-output.dir <- file.path(source.dir, paste("Output/Individual")) 
+#This will be the directory where the individual output is automatically saved throughout the simulations
+output.dir <- file.path(source.dir, paste("Output/Individual/Moderate_setting_k=015")) 
 dir.create(output.dir) #Add check: this command to be run only if the directory is not existent
 #Empty the Output folder (only if needed)
 #unlink(file.path(output.dir, "/*")) 

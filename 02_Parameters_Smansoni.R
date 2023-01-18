@@ -14,7 +14,7 @@ parms <- list(#Demography
               #-1.09 is the net migration rate for 2022 for Uganda (per 1000 individuals)
               #The emigration rate is calibrated to have constant population
               
-              parasite = list(k_w = 0.15, #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
+              parasite = list(k_w = 0.30, #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
                                v = 1, #Transmission probability
                                zeta = 0.004, #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
                                ext.foi = list(value = 1, #monthly
