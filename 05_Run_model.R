@@ -110,6 +110,9 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 zetas <- read_excel("Zetas.xlsx")
 stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
+#Load matched alphas for Density-dependent fecundity (DDF) given the edemicity
+load("Matched_alphas_moderate.RData")
+
 ################
 #Set output directory to save results
 ################

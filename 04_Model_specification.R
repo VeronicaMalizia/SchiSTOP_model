@@ -16,9 +16,6 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-#Load matched alphas for Density-dependent fecundity (DDF)
-load("Matched_alphas.RData")
-
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
 clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
