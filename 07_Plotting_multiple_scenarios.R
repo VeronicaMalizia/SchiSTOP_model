@@ -31,27 +31,11 @@ setwd(source.dir)
 #Load population output
 #####Load collated results and produce multi-panel plots
 
-setwd(file.path(source.dir, "Population_output"))
+setwd(file.path(source.dir, "/Output/Population"))
 load(file.path(source.dir, 
-               paste("/Population_output/Imm", 
+               paste("/Output/Population/Imm", 
                      imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
-res2 <- res %>%
-  mutate(Immunity = imm_strength,
-         Snails = snails,
-         DDF = DDF_strength)
-DDF_strength <- "Strong"
-load(file.path(source.dir, 
-               paste("/Population_output/Imm", 
-                     imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
-res3 <- res %>%
-  mutate(Immunity = imm_strength,
-         Snails = snails,
-         DDF = DDF_strength)
 
-data9 <- bind_rows(res1, res2, res3)
-data <- bind_rows(data1, data2, data3,
-                  data4, data5, data6,
-                  data7, data8, data9)
 #Average by seed
 data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF) %>%

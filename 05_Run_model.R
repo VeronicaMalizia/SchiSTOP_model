@@ -113,8 +113,8 @@ stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 ################
 #Set output directory to save results
 ################
-output.dir <- file.path(source.dir, paste("Output")) #/Individual
-#dir.create(output.dir) #Add check: this command to be run only if the directory is not existent
+output.dir <- file.path(source.dir, paste("Output/Individual")) 
+dir.create(output.dir) #Add check: this command to be run only if the directory is not existent
 #Empty the Output folder (only if needed)
 #unlink(file.path(output.dir, "/*")) 
 
@@ -130,9 +130,14 @@ time.end - time.start
 #Collating and saving population-level results 
 ################
 #Population-level results
+#Set endemicity setting:
+setting <- "Moderate_setting"
+dir.create(file.path(source.dir, paste("Output/Population/", setting, sep = "")))
+#Collating and saving population-level output
+#Individual output is authomatically saved through the simulations
 res <- bind_rows(results)
 save(res, file = file.path(source.dir, 
-                           paste("/Output/Population/Imm", 
+                           paste("/Output/Population/High_setting/Imm", 
                                  imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
 
 ################
