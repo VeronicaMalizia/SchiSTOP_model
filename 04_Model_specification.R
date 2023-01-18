@@ -37,7 +37,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                                 scen$snails == "Mild" ~ 20000,
                                                                 scen$snails == "Strong" ~ 10000)
                      parms$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
-                                                           scen$DDF_strength== "Mild" ~ alpha_exp,
+                                                           scen$DDF_strength== "Mild" ~ alpha_mild,
                                                            scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
                      parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
                                                        scen$DDF_strength== "Mild" ~ 0.0005,
