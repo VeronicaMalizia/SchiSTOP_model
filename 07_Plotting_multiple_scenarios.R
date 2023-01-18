@@ -31,10 +31,8 @@ setwd(source.dir)
 #Load population output
 #####Load collated results and produce multi-panel plots
 
-setwd(file.path(source.dir, "/Output/Population"))
 load(file.path(source.dir, 
-               paste("/Output/Population/Imm", 
-                     imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
+               paste("/Output/Population/Cumulative_pop_results_moderate.RData")))
 
 #Average by seed
 data_avg <- res %>%

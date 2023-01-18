@@ -134,33 +134,33 @@ time.end - time.start
 setting <- "Moderate_setting"
 dir.create(file.path(source.dir, paste("Output/Population/", setting, sep = "")))
 #Collating and saving population-level output
-#Individual output is authomatically saved through the simulations
+#Individual output is automatically saved through the simulations
 res <- bind_rows(results)
 save(res, file = file.path(source.dir, 
-                           paste("/Output/Population/High_setting/Imm", 
-                                 imm_strength, "Sn=", snails, "DDF=", DDF_strength, ".RData", sep="")))
+                           paste("/Output/Population/Cumulative_pop_results_moderate.RData")))
 
 ################
 #Running plotting code
 ################
-source("06_Plotting_single_scenario.R")
-
-################
-#Inspecting and saving plots (if desired)
-################
-
-#Prevalence timelines
-tiff("Plots/Modeling scenarios/IMM_mild/Prevalence_HIGHsetting.tif", width=7, height=6, units = "in", res = 300)
-Fig1
-dev.off()
-
-#Prevalence of infected snails
-tiff("Plots/Prevalence_snail_low.tif", width=7, height=6, units = "in", res = 300)
-Fig2
-dev.off()
-
-Fig3
-Fig4
-cerc
-mirac
-cercVSmirac
+##Checks when running single scenario
+# source("06_Plotting_single_scenario.R")
+# 
+# ################
+# #Inspecting and saving plots (if desired)
+# ################
+# 
+# #Prevalence timelines
+# tiff("Plots/Modeling scenarios/IMM_mild/Prevalence_HIGHsetting.tif", width=7, height=6, units = "in", res = 300)
+# Fig1
+# dev.off()
+# 
+# #Prevalence of infected snails
+# tiff("Plots/Prevalence_snail_low.tif", width=7, height=6, units = "in", res = 300)
+# Fig2
+# dev.off()
+# 
+# Fig3
+# Fig4
+# cerc
+# mirac
+# cercVSmirac
