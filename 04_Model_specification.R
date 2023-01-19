@@ -16,7 +16,7 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
+cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), length(stoch_scenarios)))
 clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
@@ -323,7 +323,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                        "DDF=", scen$DDF_strength, ".csv", sep="")
                      #Write
                      write.csv(ind_file, 
-                               file.path(output.dir, filename),
+                               file.path(ind.output.dir, filename),
                                row.names = F)
                      
                      res <- tibble(time = 1:(12*T),

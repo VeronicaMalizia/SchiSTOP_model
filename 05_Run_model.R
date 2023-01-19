@@ -21,12 +21,14 @@ library(foreach)
 library(doParallel)
 library(patchwork)
 library(profvis)
+library(rstudioapi)
 
 ################
 #Initial population
 #Building up the initial cohort
 ################
-source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
+source.dir <- dirname(getActiveDocumentContext()$path)
+  #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 #Load age distribution at equilibrium and death rates
 load("Equilibrium_age_distribution.RData") #the object is called "to.save"
@@ -110,15 +112,20 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 zetas <- read_excel("Zetas.xlsx")
 stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
-#Load matched alphas for Density-dependent fecundity (DDF) given the edemicity
+#Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load("Matched_alphas_moderate.RData")
+
+#Heterogeneity of worms
+parms$parasite$k_w = 0.3
 
 ################
 #Set output directory to save results
 ################
+setting <- "Moderate_setting_k=030_Age-int"
+
 #This will be the directory where the individual output is automatically saved throughout the simulations
-output.dir <- file.path(source.dir, paste("Output/Individual/Moderate_setting_k=015")) 
-dir.create(output.dir) #Add check: this command to be run only if the directory is not existent
+ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
+dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
 #Empty the Output folder (only if needed)
 #unlink(file.path(output.dir, "/*")) 
 
@@ -135,13 +142,13 @@ time.end - time.start
 ################
 #Population-level results
 #Set endemicity setting:
-setting <- "Moderate_setting"
-dir.create(file.path(source.dir, paste("Output/Population/", setting, sep = "")))
+pop.output.dir <- file.path(source.dir, "Output/Population/")
+#dir.create(pop.output.dir)
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
 res <- bind_rows(results)
-save(res, file = file.path(source.dir, 
-                           paste("/Output/Population/Cumulative_pop_results_moderate.RData")))
+save(res, file = file.path(pop.output.dir, 
+                           paste(setting, ".RData", sep = "")))
 
 ################
 #Running plotting code

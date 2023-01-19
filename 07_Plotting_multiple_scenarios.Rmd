@@ -1,3 +1,18 @@
+---
+title: "Regulating mechanisms on Schistosomiasis transmission"
+author: "Veronica Malizia"
+date: '19-01-2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+# Simulation results
+
+
+```{r setting, echo=FALSE, include=FALSE}
 rm(list = ls())
 
 .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
@@ -6,12 +21,13 @@ library(readxl)
 library(ggridges)
 library(patchwork)
 library(egg)
-#These functions should be already loaded from file 01
-# `%!in%` <- Negate(`%in%`)
-# geom_mean <- function(x){exp(mean(log(x)))}
-# ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
+
+`%!in%` <- Negate(`%in%`)
+geom_mean <- function(x){exp(mean(log(x)))}
+ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
 #SETTING THE SCENARIO
+seeds <- 10
 
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
@@ -23,16 +39,17 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 zetas <- read_excel("Zetas.xlsx")
 stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
+setting <- "Moderate_setting_k=015_Age-int"
+
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
   #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
+```
 
-################
-#Prevalence timelines
+```{r loading population data, echo=FALSE}
 #Load population output
 #####Load collated results and produce multi-panel plots
-setting <- "Moderate_setting_k=015_Age-int"
 pop.output.dir <- file.path(source.dir, "Output/Population")
 load(file.path(pop.output.dir, 
                paste(setting, ".RData", sep = "")))
@@ -43,18 +60,14 @@ data_avg <- res %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             PHI = mean(Heggs_prev),
             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
-#Save collated data
-#write.csv(data, file = "Population data_collated scenarios.csv")
 
-#Plot prevalence
+```
 
-#Let's create an additional data frame to hold the text annotations:
-# text <- zetas %>%
-#   group_by(Snails, Immunity) %>%
-#   summarise(Snail_prevalence = list(`Snail prevalence`)) 
-# text$Snail_prevalence[1:3] = NA
-# my_tag <- paste("Snail prevalence:\n", text$Snail_prevalence)
+# Prevalence timelines
 
+## Prevalence of any infection in school-aged-children (SAC) 
+
+```{r SAC prev, echo=FALSE}
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
   geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
@@ -77,25 +90,33 @@ Fig <- ggplot(data=data_avg, aes(x=time/12)) +
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-setwd(source.dir)
-tiff("Plots/Modeling_scenarios/PrevalenceSAC.tif", width=10, height=9, units = "in", res = 300)
+# tiff("Plots/Modeling_scenarios/PrevalenceSAC.tif", width=10, height=9, units = "in", res = 300)
 Fig 
-dev.off()
-#Zoom on MDA
-tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300)
+# dev.off()
+```
+
+## Zoom on MDA rounds 
+
+```{r SAC prevalence MDA, echo=FALSE}
+#tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300)
 Fig + 
   # geom_text(data=zetas, aes(x=170, y=80, label=my_tag), 
   #           size=3) +
   coord_cartesian(xlim=c(140, 170)) 
-dev.off()
+#dev.off()
 
-###Heavy intensity prevalence
+```
+
+## Prevalence of heavy intensity infections in SAC
+
+```{r heavy prev SAC, echo=FALSE}
+
 Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=PHI*100, colour = DDF)) +
   labs(title = "Moderate endemicity setting") +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  geom_text(data=text, aes(x=200, y=80, label=my_tag), 
-            size=3) +
+  # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
+  #           size=3) +
   scale_y_continuous(name = "Prevalence of heavy infections (%) \n",
                      breaks = seq(0, 10, 2),
                      limits = c(0, 10),
@@ -110,37 +131,20 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-tiff("Plots/Modeling_scenarios/Prevalence_Heavy.tif", width=10, height=9, units = "in", res = 300)
+#tiff("Plots/Modeling_scenarios/Prevalence_Heavy.tif", width=10, height=9, units = "in", res = 300)
 Fig2 
-dev.off()
+#dev.off()
+```
 
-#PLot prevalence of infected patent snails (only for snails = 'yes')
-# tiff("Plots/Modeling_scenarios/I++S+_SnailsPrev.tif", width=7, height=6, units = "in", res = 300)
-# ggplot(data_avg, aes(x=time/12, colour = as.factor(Scenario))) +
-#   geom_line(aes(y=snail_prev*100)) +
-#   labs(title = "Moderate endemicity setting") +
-#   guides(col = guide_legend("Scenario")) +
-#   scale_y_continuous(name = "Prevalence of infected snails (%)",
-#                      breaks = seq(0, 100, 20),
-#                      limits = c(0, 100),
-#                      expand = c(0, 0)) +
-#   scale_x_continuous(name = "Time [Years]",
-#                      #limits = c(0, 1200),
-#                      expand = c(0, 0)) +
-#   expand_limits(x = 0,y = 0) +
-#   theme_bw() +
-#   theme(legend.position="bottom",
-#         plot.margin = margin(5, 10, 0, 10, "pt")) 
-# dev.off()
 
-################
-#Age-exposure profiles
+# Individual-level results
+
+```{r loading individual data, echo=FALSE, include=FALSE}
+
 #Load individual output
 #Collate results by seeds
-setting <- "Moderate_setting_k=015_Age-int"
 ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
-# setwd(output.dir)
-#Run this below for each of the DDF level
+
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
                        pattern = "*.csv", full.names = TRUE) %>% 
   lapply(read_csv, show_col_types = F) %>%              # Store all files in list
@@ -191,7 +195,10 @@ data_toplot <- age_out %>%
             rate_mean = mean(rate),
             rate_lo = ci(rate)[1],
             rate_hi = ci(rate)[2])
+```
 
+
+```{r plot functions, echo=FALSE}
 #Mean intensity
 eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
   geom_pointrange(aes(ymin=epg_mean-epg_lo+1, ymax=epg_mean+epg_hi+1, colour = DDF)) +
@@ -211,9 +218,9 @@ eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-tiff("Plots/Modeling_scenarios/Age profiles/Eggs.tif", width=10, height=9, units = "in", res = 300)
-eggs
-dev.off()
+# tiff("Plots/Modeling_scenarios/Age profiles/Eggs.tif", width=10, height=9, units = "in", res = 300)
+# eggs
+# dev.off()
 
 #Parasite establishment rate
 rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean, group = DDF))+
@@ -234,9 +241,9 @@ rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean, group = DDF))+
     plot.margin = margin(5, 10, 0, 10, "pt"),
     panel.spacing = unit(1, "lines")) 
 
-tiff("Plots/Modeling_scenarios/Age profiles/Rate.tif", width=10, height=9, units = "in", res = 300)
-rate
-dev.off()
+# tiff("Plots/Modeling_scenarios/Age profiles/Rate.tif", width=10, height=9, units = "in", res = 300)
+# rate
+# dev.off()
 
 #Worms
 worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+1, group = DDF))+
@@ -257,9 +264,9 @@ worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+1, group = DDF))+
     plot.margin = margin(5, 10, 0, 10, "pt"),
     panel.spacing = unit(1, "lines")) 
 
-tiff("Plots/Modeling_scenarios/Age profiles/Worms.tif", width=10, height=9, units = "in", res = 300)
-worms
-dev.off()
+# tiff("Plots/Modeling_scenarios/Age profiles/Worms.tif", width=10, height=9, units = "in", res = 300)
+# worms
+# dev.off()
 
 #Dead worm pairs
 dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+1, group = DDF))+
@@ -280,47 +287,43 @@ dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+1, group = DDF))+
     plot.margin = margin(5, 10, 0, 10, "pt"),
     panel.spacing = unit(1, "lines")) 
 
-tiff("Plots/Modeling_scenarios/Age profiles/Dead_worms.tif", width=10, height=9, units = "in", res = 300)
-dead_worms
-dev.off()
+# tiff("Plots/Modeling_scenarios/Age profiles/Dead_worms.tif", width=10, height=9, units = "in", res = 300)
+# dead_worms
+# dev.off()
+```
 
-##Print average worm pairs burden per person
+## Age-intensity profiles
+
+```{r age-intensity, echo=FALSE}
+eggs
+```
+
+
+## Check: worm distribution by age
+
+```{r worms, echo=FALSE}
+worms
+```
+
+## Check: parasite establishment rate
+
+```{r establishment rate, echo=FALSE}
+rate
+```
+
+## Check: cumulated dead worms by age
+
+```{r dead worms, echo=FALSE}
+dead_worms
+```
+
+## Average worm pairs and epg in the whole population
+
+```{r avg worms, echo=FALSE}
 age_out %>% 
   #filter(time==141) %>%
   group_by(time) %>%
   summarise(avg_wp = mean(wp),
             avg_epg = mean(epg))
+```
 
-##############
-#Plot demographics
-##############
-# ##Age distribution by time
-#https://r-charts.com/distribution/ggridges/
-cohort_plot_age <- cohort %>%
-  select(age) %>%
-  mutate(ID = 1:nrow(cohort),
-         time = 0,
-         seed = NA)
-bind_rows(cohort_plot_age,
-          select(data_all, age, ID, time, seed) %>%
-            filter(time %in% c(seq(12, (T*12), 20*12)/12))) %>%
-  ggplot(aes(x=round(age))) +
-  geom_histogram(aes(y = ..density.., colour=as.factor(seed)), binwidth = 5,
-                 fill="white", position = 'dodge') +
-  #stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) +
-  guides(colour=guide_legend(title="Simulation seed")) +
-  scale_color_grey() +
-  facet_wrap(~ as.factor(time)) +
-  scale_y_continuous(name = "Density",
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Age [years]",
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0) +
-  theme(legend.position="top")
-# 
-# 
-# data_all %>%
-#    filter(time==1, seed==1) %>%
-#    ggplot(aes(x=age)) +
-#    geom_histogram(binwidth = 5) + 
-#    stat_bin(aes(y=..count.., label=..count..), binwidth = 5, geom="text", vjust=-.5) 

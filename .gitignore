@@ -44,6 +44,9 @@ vignettes/*.pdf
 # trash files
 *.tmp
 
+# html files (e.g. from Markdown)
+*.html
+
 # Output and Plots folder
 /Output*
 /Plots/
