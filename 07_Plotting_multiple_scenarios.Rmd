@@ -6,11 +6,13 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
+                      fig.width=12, fig.height=10)
 ```
 
 # Simulation results
 
+Heterogeneity of worms in the population: 0.15
 
 ```{r setting, echo=FALSE, include=FALSE}
 rm(list = ls())
@@ -336,16 +338,19 @@ dead_worms
 
 ## Average worm pairs and epg in the whole population
 
-```{r avg worms, echo=FALSE}
-data_all %>%
-  filter(time == 131) %>%
-  #filter(seed %!in% dead.seeds) %>%
-  group_by(time, Immunity, Snails, DDF) %>% #sex not for now
-  summarise(wp_mean = mean(tot_wp),
-            wp_lo = ci(tot_wp)[1],
-            wp_hi = ci(tot_wp)[2],
-            epg_mean = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group
-            epg_lo = ci(ec*24)[1],
-            epg_hi = ci(ec*24)[2])
+```{r avg worms, echo=FALSE, results='asis'}
+library(knitr)
+kable(caption = "Population mean and 95%-CI of worm burdens and observed epg",
+      data_all %>%
+        filter(time == 131) %>%
+        #filter(seed %!in% dead.seeds) %>%
+        group_by(Immunity, Snails, DDF) %>% #sex not for now
+        summarise(wp_mean = mean(tot_wp),
+                  wp_lo = ci(tot_wp)[1],
+                  wp_hi = ci(tot_wp)[2],
+                  epg_mean = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group
+                  epg_lo = ci(ec*24)[1],
+                  epg_hi = ci(ec*24)[2])
+)
 ```
 
