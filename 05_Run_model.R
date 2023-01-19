@@ -133,7 +133,7 @@ dir.create(ind.output.dir) #Add check: this command to be run only if the direct
 #Run the model
 ################
 time.start <- Sys.time()
-source("C:\\Users\\Z541213\\Documents\\Project\\Model\\Schisto_model\\04_Model_specification.R")
+source("04_Model_specification.R")
 time.end <- Sys.time()
 time.end - time.start
 
