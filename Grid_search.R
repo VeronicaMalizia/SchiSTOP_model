@@ -28,7 +28,7 @@ library(rstudioapi)
 #Building up the initial cohort
 ################
 source.dir <- dirname(getActiveDocumentContext()$path)
-  #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
+#"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 #Load age distribution at equilibrium and death rates
 load("Equilibrium_age_distribution.RData") #the object is called "to.save"
@@ -92,37 +92,47 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 300 #number of years simulated
-seeds <- 10
+T <- 100 #number of years simulated
+seeds <- 1
 fr <- 10 #frequency for printing to file the individual output [years]
 
 ################
-#SETTING THE MODELLING SCENARIO: limiting mechanism
+#SETTING THE MODELLING SCENARIO: grid search
 ################
 #For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
 #Combinations of modelling scenarios and stochastic seed
 
+#No mda
+parms$mda$start <- 0
+parms$mda$end <- 0
+
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
-                                    imm_strength = c("Absent", "Mild", "Strong"),
-                                    snails = c("Strong")))
+                                    imm_strength = c("Absent"),
+                                    snails = c("Absent")))
+
+#Grid search of endemic parameters
+zetas <- seq(0.00001, 0.001, by=0.00005)
+worms_aggr <- seq(0.1, 0.8, 0.1)
+transmission_snails <- seq(0.000001, 0.0001, 0.00001)
+
+
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-zetas <- read_excel("Zetas.xlsx")
-#zetas <- 
-stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta[19:27], each = seeds)*0.5)
+# zetas <- read_excel("Zetas.xlsx")
+# stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_low.RData")
+load("Matched_alphas_moderate.RData")
 
 #Heterogeneity of worms
-parms$parasite$k_w = 0.15
+parms$parasite$k_w = 0.3
 
 ################
 #Set output directory to save results
 ################
-setting <- "Low_setting_k=015_Age-int"
+setting <- "Moderate_setting_k=030_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 

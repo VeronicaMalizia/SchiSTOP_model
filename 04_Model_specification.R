@@ -186,7 +186,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
                        
-                       eggs <- mu*24*parms$parasite$eggs$gr_stool #daily quantity, since particles in the environment are short-lived
+                       eggs <- round(mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
                        pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
@@ -317,12 +317,12 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
-                     filename <- paste("Ind_out_seed_", scen$seed, 
-                                       "_Imm=", scen$imm_strength, 
-                                       "Sn=", scen$snails, 
+                     filename <- paste("Ind_out_seed_", scen$seed,
+                                       "_Imm=", scen$imm_strength,
+                                       "Sn=", scen$snails,
                                        "DDF=", scen$DDF_strength, ".csv", sep="")
                      #Write
-                     write.csv(ind_file, 
+                     write.csv(ind_file,
                                file.path(ind.output.dir, filename),
                                row.names = F)
                      

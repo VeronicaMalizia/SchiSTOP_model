@@ -32,17 +32,17 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 10
 
-stoch_scenarios <- expand.grid(list(seed = 1:seeds,
-                                    DDF_strength = c("Absent", "Mild", "Strong"),
-                                    imm_strength = c("Absent", "Mild", "Strong"),
-                                    snails = c("Absent", "Mild", "Strong")))
+# stoch_scenarios <- expand.grid(list(seed = 1:seeds,
+#                                     DDF_strength = c("Absent", "Mild", "Strong"),
+#                                     imm_strength = c("Absent", "Mild", "Strong"),
+#                                     snails = c("Absent", "Mild", "Strong")))
+# 
+# #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
+# #Transmission parameters for tuning endemicity
+# zetas <- read_excel("Zetas.xlsx")
+# stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
-#Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
-#Transmission parameters for tuning endemicity
-zetas <- read_excel("Zetas.xlsx")
-stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
-
-setting <- "Moderate_setting_k=015_Age-int"
+setting <- "Low_setting_k=015_Age-int"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -96,9 +96,9 @@ Fig <- ggplot(data=data_avg, aes(x=time/12)) +
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-# tiff("Plots/Modeling_scenarios/PrevalenceSAC.tif", width=10, height=9, units = "in", res = 300)
+#tiff("Plots/Modeling_scenarios/PrevalenceSAC_low.tif", width=12, height=6, units = "in", res = 300)
 Fig 
-# dev.off()
+#dev.off()
 ```
 
 ## Zoom on MDA rounds 
@@ -107,7 +107,7 @@ Solid lines show prevalence of infection in SAC.
 Dashed lines show the underlying prevalence of infection on snails (shedding).
 
 ```{r SAC prevalence MDA, echo=FALSE}
-#tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300)
+#tiff("Plots/Modeling_scenarios/PrevalenceSAC_low_MDA.tif", width=12, height=6, units = "in", res = 300)
 Fig + 
   # geom_text(data=zetas, aes(x=170, y=80, label=my_tag), 
   #           size=3) +
@@ -140,7 +140,7 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-#tiff("Plots/Modeling_scenarios/Prevalence_Heavy.tif", width=10, height=9, units = "in", res = 300)
+#tiff("Plots/Modeling_scenarios/Prevalence_Heavy_low.tif", width=12, height=6, units = "in", res = 300)
 Fig2 
 #dev.off()
 ```
