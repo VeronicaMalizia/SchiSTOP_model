@@ -17,7 +17,7 @@ writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), nrow(stoch_scenarios)))
-clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
+#clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
 results <- foreach(k = 1:nrow(stoch_scenarios),
@@ -42,10 +42,11 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
                                                        scen$DDF_strength== "Mild" ~ 0.0005,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
+                     parms$parasite$k_w = scen$worms_aggr
                      
-                     sink("Sink.txt", append=TRUE)
-                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
-                     sink()
+                     # sink("Sink.txt", append=TRUE)
+                     # cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                     # sink()
                      
                      #for each seed:
                      
@@ -275,15 +276,19 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        }
                        
                        #Save annual individual output
-                       if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
-                         ind_file <- rbind(ind_file,
-                                           select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
-                                             mutate(tot_wp = wp1+wp2+wp3,
-                                                    time = t/12, #years
-                                                    seed = scen$seed,
-                                                    Immunity = scen$imm_strength,
-                                                    Snails = scen$snails,
-                                                    DDF = scen$DDF_strength))
+                       if(write.output == TRUE){
+                         if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
+                           ind_file <- rbind(ind_file,
+                                             select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
+                                               mutate(tot_wp = wp1+wp2+wp3,
+                                                      time = t/12, #years
+                                                      seed = scen$seed,
+                                                      zeta = scen$zeta,
+                                                      worms_aggr = scen$worms_aggr,
+                                                      Immunity = scen$imm_strength,
+                                                      Snails = scen$snails,
+                                                      DDF = scen$DDF_strength))
+                         }
                        }
                        
                        ########## 8. WORMS UPDATE (for next month)
@@ -317,17 +322,21 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
-                     filename <- paste("Ind_out_seed_", scen$seed,
-                                       "_Imm=", scen$imm_strength,
-                                       "Sn=", scen$snails,
-                                       "DDF=", scen$DDF_strength, ".csv", sep="")
-                     #Write
-                     write.csv(ind_file,
-                               file.path(ind.output.dir, filename),
-                               row.names = F)
+                     if(write.output==TRUE){
+                       filename <- paste("Ind_out_seed_", scen$seed,
+                                         "_Imm=", scen$imm_strength,
+                                         "Sn=", scen$snails,
+                                         "DDF=", scen$DDF_strength, ".csv", sep="")
+                       #Write
+                       write.csv(ind_file,
+                                 file.path(ind.output.dir, filename),
+                                 row.names = F)
+                     }
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(scen$seed, (12*T)),
+                                   zeta = rep(scen$zeta, (12*T)),
+                                   worms_aggr = rep(scen$worms_aggr, (12*T)),
                                    Immunity = rep(scen$imm_strength, (12*T)),
                                    Snails = rep(scen$snails, (12*T)),
                                    DDF= rep(scen$DDF_strength, (12*T)),

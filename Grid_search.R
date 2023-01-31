@@ -13,7 +13,7 @@
 rm(list = ls())
 
 #Loading packages
-.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+#.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(tidyverse)
 library(readxl)
 library(ggridges)
@@ -92,9 +92,10 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 100 #number of years simulated
-seeds <- 1
+T <- 200 #number of years simulated
+seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: grid search
@@ -106,20 +107,23 @@ fr <- 10 #frequency for printing to file the individual output [years]
 parms$mda$start <- 0
 parms$mda$end <- 0
 
-stoch_scenarios <- expand.grid(list(seed = 1:seeds,
-                                    DDF_strength = c("Absent", "Mild", "Strong"),
-                                    imm_strength = c("Absent"),
-                                    snails = c("Absent")))
-
 #Grid search of endemic parameters
-zetas <- seq(0.00001, 0.001, by=0.00005)
-worms_aggr <- seq(0.1, 0.8, 0.1)
-transmission_snails <- seq(0.000001, 0.0001, 0.00001)
+stoch_scenarios <- expand.grid(list(seed = 1:seeds,
+                                    DDF_strength = c("Strong"),
+                                    imm_strength = c("Absent"),
+                                    snails = c("Absent"),
+                                    zeta = exp(runif(50, -9.9, -9.5)),
+                                    worms_aggr = seq(0.1, 0.29, 0.01)))
+                                    # zeta = runif(50, 4*10^(-5), 4*10^(-4)),
+                                    # worms_aggr = seq(0.1, 0.8, 0.1)))
 
 
+
+#transmission_snails <- seq(0.000001, 0.0001, 0.00001)
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
+# No need in case of grid search
 # zetas <- read_excel("Zetas.xlsx")
 # stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
@@ -127,18 +131,21 @@ transmission_snails <- seq(0.000001, 0.0001, 0.00001)
 load("Matched_alphas_moderate.RData")
 
 #Heterogeneity of worms
-parms$parasite$k_w = 0.3
+#parms$parasite$k_w = 0.3
 
 ################
 #Set output directory to save results
 ################
-setting <- "Moderate_setting_k=030_Age-int"
+setting <- "Grid_search_onlylow_panel1_DDFstrong"
+  #"Moderate_setting_k=030_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
-ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
-dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
-#Empty the Output folder (only if needed)
-#unlink(file.path(output.dir, "/*")) 
+if(write.output == TRUE){
+  ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
+  dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
+  #Empty the Output folder (only if needed)
+  #unlink(file.path(output.dir, "/*")) 
+}
 
 ################
 #Run the model
@@ -154,7 +161,9 @@ time.end - time.start
 #Population-level results
 #Set endemicity setting:
 pop.output.dir <- file.path(source.dir, "Output/Population/")
-#dir.create(pop.output.dir)
+if(!file.exists(pop.output.dir)){
+  dir.create(pop.output.dir)
+}
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
 res <- bind_rows(results)
