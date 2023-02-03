@@ -128,7 +128,7 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 # stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_moderate.RData")
+load("Matched_alphas_low.RData")
 
 #Heterogeneity of worms
 #parms$parasite$k_w = 0.3
@@ -167,8 +167,9 @@ if(!file.exists(pop.output.dir)){
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
 res <- bind_rows(results)
-save(res, file = file.path(pop.output.dir, 
-                           paste(setting, ".RData", sep = "")))
+saveRDS(res, file = file.path(pop.output.dir, 
+                           paste(setting, ".RDS", sep = "")))
+#then read with readRDS
 
 ################
 #Running plotting code

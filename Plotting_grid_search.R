@@ -32,18 +32,20 @@ setwd(source.dir)
 #Load population output
 #####Load collated results and produce multi-panel plots
 grid.output.dir <- file.path(source.dir, "Output/Grid_search")
-load(file.path(grid.output.dir, 
-               paste(setting, ".RData", sep = "")))
+res <- readRDS(file.path(grid.output.dir, 
+               paste(setting, ".RDS", sep = "")))
+max.time <- max(res$time)
 
 #Average by seed
 data_avg <- res %>%
+  filter(time == max.time) %>%
   group_by(time, zeta, worms_aggr, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             PHI = mean(Heggs_prev))
             #snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
 #Check faded-out simulations:
-max.time <- max(data_avg$time)
+
 # data_avg <- data_avg %>%
 #   filter(!(time==max.time & eggs_prev_SAC == 0))
 
@@ -67,7 +69,7 @@ Fig <- levelplot(eggs_prev_SAC ~ worms_aggr*zeta, data=data_avg[which(data_avg$t
                  main="Heatmap of prevalence in SAC, at the end of simulation.",
                  col.regions = rev(heat.colors(100)))
 
-tiff("Plots/Grid search/Panel1_DDFstrong_refined.tif", width=12, height=10, units = "in", res = 300)
+tiff("Grid search/Panel1_DDFstrong_refined.tif", width=12, height=10, units = "in", res = 300)
 Fig 
 dev.off()
 
@@ -98,20 +100,20 @@ Fig3 <- filter(data_avg, time == max.time) %>%
                      limits = c(0, 1),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "\n Transmission parameter on humans [zeta]",
-                     breaks = seq(0, 4*10^(-4), 0.00005),
+                     #breaks = seq(0, 4*10^(-4), 0.00005),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
   #coord_cartesian(xlim=c(500, (T*12))) +
   expand_limits(x = 0,y = 0) +
   theme_bw()
 
-tiff("Plots/Grid search/Panel1_DDFstrong_simualtions.tif", width=12, height=9, units = "in", res = 300)
+tiff("Grid search/Panel1_DDFstrong_simualtions.tif", width=12, height=9, units = "in", res = 300)
 Fig3
 dev.off()
 
 #High (60%)
 #I chose:
-f <- filter(data_avg, worms_aggr==0.2 & time == max.time 
+f <- filter(data_avg, worms_aggr==0.2 #& time == max.time 
             & eggs_prev_SAC >= 0.6 & eggs_prev_SAC <= 0.61)
 f$zeta[1]
 #zeta = 0.000164 & k_w = 0.2
@@ -127,7 +129,7 @@ mod <- filter(res, (zeta==f2$zeta[1] & worms_aggr == f2$worms_aggr[1])) %>%
   mutate(Endemicity = "Moderate")
 
 #Low (10%)
-f3 <- filter(data_avg, time == max.time #round(worms_aggr, digits = 2)==0.1 &
+f3 <- filter(data_avg, round(worms_aggr, digits = 2)==0.27 
              & eggs_prev_SAC >= 0.08 & eggs_prev_SAC <= 0.12)
 f3
 low <- filter(res, (zeta==f3$zeta[1] & worms_aggr == f3$worms_aggr[1])) %>%
@@ -150,7 +152,7 @@ Eq <- bind_rows(high, mod, low) %>%
   expand_limits(x = 0,y = 0) +
   theme_bw() 
 
-tiff("Plots/Grid search/Panel1_DDFstrong_equilibrium.tif", width=12, height=9, units = "in", res = 300)
+tiff("Grid search/Panel1_DDFstrong_equilibrium_onlylow.tif", width=12, height=9, units = "in", res = 300)
 Eq
 dev.off()
 
