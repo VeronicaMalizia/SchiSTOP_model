@@ -6,6 +6,10 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+rm(list = ls())
+
+.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
                       fig.width=12, fig.height=10)
 ```
@@ -15,9 +19,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
 Heterogeneity of worms in the population: 0.15
 
 ```{r setting, echo=FALSE, include=FALSE}
-rm(list = ls())
 
-.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(tidyverse)
 library(readxl)
 library(ggridges)
@@ -32,17 +34,7 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 10
 
-stoch_scenarios <- expand.grid(list(seed = 1:seeds,
-                                    DDF_strength = c("Absent", "Mild", "Strong"),
-                                    imm_strength = c("Absent", "Mild", "Strong"),
-                                    snails = c("Absent", "Mild", "Strong")))
-
-#Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
-#Transmission parameters for tuning endemicity
-zetas <- read_excel("Zetas.xlsx")
-stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
-
-setting <- "Moderate_setting_k=015_Age-int"
+setting <- "Trial_FOIsnails_low" #"Moderate_setting_k=015_Age-int"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -54,8 +46,8 @@ setwd(source.dir)
 #Load population output
 #####Load collated results and produce multi-panel plots
 pop.output.dir <- file.path(source.dir, "Output/Population")
-load(file.path(pop.output.dir, 
-               paste(setting, ".RData", sep = "")))
+res <- readRDS(file.path(pop.output.dir, 
+               paste(setting, ".RDS", sep = "")))
 
 #Average by seed
 data_avg <- res %>%
@@ -68,10 +60,9 @@ data_avg <- res %>%
 
 # Prevalence timelines
 
-## Prevalence of any infection in school-aged-children (SAC) 
+## Prevalence of any infection in school-aged-children (SAC)
 
-Solid lines show prevalence of infection in SAC.
-Dashed lines show the underlying prevalence of infection on snails (shedding).
+Solid lines show prevalence of infection in SAC. Dashed lines show the underlying prevalence of infection on snails (shedding).
 
 ```{r SAC prev, echo=FALSE}
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
@@ -101,10 +92,9 @@ Fig
 # dev.off()
 ```
 
-## Zoom on MDA rounds 
+## Zoom on MDA rounds
 
-Solid lines show prevalence of infection in SAC.
-Dashed lines show the underlying prevalence of infection on snails (shedding).
+Solid lines show prevalence of infection in SAC. Dashed lines show the underlying prevalence of infection on snails (shedding).
 
 ```{r SAC prevalence MDA, echo=FALSE}
 #tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300)
@@ -145,7 +135,6 @@ Fig2
 #dev.off()
 ```
 
-
 # Individual-level results
 
 ```{r loading individual data, echo=FALSE, include=FALSE}
@@ -155,9 +144,10 @@ Fig2
 ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
 
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
-                       pattern = "*.csv", full.names = TRUE) %>% 
-  lapply(read_csv, show_col_types = F) %>%              # Store all files in list
-  bind_rows
+                       pattern = "*.RDS", full.names = TRUE) %>% 
+  lapply(readRDS) %>%              # Store all files in list
+  bind_rows %>%
+  filter(time == 131)
 
 # Combine data sets into one
 #Aggregate by age groups
@@ -165,7 +155,6 @@ data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
 #unique(data_all$time) #individual output contains time in years
 #years <- c(81, 101, 151, 181) #c(51, 81, 101, 151, 161, 171, 181, 191)
 age_out <- data_all %>%
-  filter(time == 131) %>%
   #filter(seed %!in% dead.seeds) %>%
   mutate(age_group = case_when(age<=1 ~ "0_1",
                                age>1 & age<=5 ~ "1_5",
@@ -215,7 +204,6 @@ data_toplot <- age_out
 #             rate_lo = ci(rate)[1],
 #             rate_hi = ci(rate)[2])
 ```
-
 
 ```{r plot functions, echo=FALSE}
 #Mean intensity
@@ -317,7 +305,6 @@ dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+0.5, group = DDF))
 eggs
 ```
 
-
 ## Check: worm distribution by age
 
 ```{r worms, echo=FALSE}
@@ -353,4 +340,3 @@ kable(caption = "Population mean and 95%-CI of worm burdens and observed epg",
                   epg_hi = ci(ec*24)[2])
 )
 ```
-

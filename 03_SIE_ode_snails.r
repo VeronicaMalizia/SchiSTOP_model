@@ -20,7 +20,7 @@ SEI <- function(t, x, parms) {
         #Logistic growth
         #For population growing with limited amount of resources
         beta <- beta0*(1-N/k) #Infected snails do not reproduce
-        FOIs <- b*mir/N
+        FOIs <- b*mir #/N
           #l0*(1-chi^(mir/N)) #Gurarie - non linear FOIs
         
         #Equations
@@ -51,7 +51,7 @@ mortality.rate = 1/lifespan
 mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
-snail_transmission_rate = 0.01 #a combined version of exposure rate and probability of success. invasion
+snail_transmission_rate = 0.000001 #a combined version of exposure rate and probability of success. invasion
 #rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
 # (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
@@ -81,13 +81,15 @@ C0=0
 ## Start values for steady state
 xstart <- c(S = S0, E = E0, I = I0, C = C0)
 
-xstart <- c(S = out2$S[30], E = out2$E[30], I = out2$I[30], C = out2$C[30])
+#xstart <- c(S = out2$S[ndays], E = out2$E[ndays], I = out2$I[ndays], C = out2$C[ndays])
 
 ## Solving single run
 # solve ODEs
 out <-  lsoda(xstart, times, SEI, parms) #tra gli argomenti ha la mia funzione che definisce il sistema differenziale
 # Translate the output into a data.frame
 out2 <- as.data.frame(out)
+
+tail(out2)
 
 #Solving iteratively for different carring capacities
 ks <- c(1000, 5000, 10000, 20000)
@@ -119,7 +121,7 @@ legend("topright",
        horiz = F , 
        inset = c(0.1, 0.1))
 
-plot(out2$time, TOT, type='l', 
+plot(out2$time, TOT, type='l', ylim = c(0, 30000),
      xlab = "Time in days", ylab = "Total snail population size") 
 plot(out2$time, out2$C, type='l', 
      xlab = "Time in days", ylab = "Cercarial output") 

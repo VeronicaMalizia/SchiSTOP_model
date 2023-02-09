@@ -43,9 +43,9 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                        scen$DDF_strength== "Mild" ~ 0.0005,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
                      
-                     sink("Sink.txt", append=TRUE)
-                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
-                     sink()
+                     # sink("Sink.txt", append=TRUE)
+                     # cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                     # sink()
                      
                      #for each seed:
                      
@@ -186,7 +186,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
                        
-                       eggs <- mu*24*parms$parasite$eggs$gr_stool #daily quantity, since particles in the environment are short-lived
+                       eggs <- round(mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
                        pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
@@ -225,15 +225,11 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                          m = parms$snails$cerc.mortality)
                          
                          #Set initial conditions from the last day of previous run/month
-                         S0 = newstart[1]
-                         E0 = newstart[2]
-                         I0 = newstart[3]
-                         C0 = newstart[4]
+                         ## Start values for steady state
+                         xstart <- c(S = newstart[1], E = newstart[2], I = newstart[3], C = newstart[4])
+                          
                          ## vector of time steps (30 days)
                          times <- 1:30
-                         
-                         ## Start values for steady state
-                         xstart <- c(S = S0, E = E0, I = I0, C = C0)
                          
                          #Run and solve
                          out <-  lsoda(xstart, times, SEI, parms.ODE) 
@@ -249,7 +245,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                          
                          #Cercarial production 
                          cercariae[t] <- out2$C[nrow(out2)]
+                         
+                         #print(c(k, t, mirac.input, newstart), na.print="-999")
                        }
+                       
                        
                        ########## 6. EXPOSURE OF HUMANS 
                        #Each individual assumes new worms (FOIh) and immunity applies
@@ -259,7 +258,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        ########## 7. SAVE OUTPUT
                        # sink("Find_bug.txt", append=TRUE)
-                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
+                       # cat(paste(Sys.time(), ": Scen:", k, "Time step", t, "mir, cer", m_in[t-1], 
+                       #           cercariae[t], "\n", sep = " "))
                        # sink()
                        
                        #Summary statistics
@@ -275,17 +275,18 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        }
                        
                        #Save annual individual output
-                       if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
-                         ind_file <- rbind(ind_file,
-                                           select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
-                                             mutate(tot_wp = wp1+wp2+wp3,
-                                                    time = t/12, #years
-                                                    seed = scen$seed,
-                                                    Immunity = scen$imm_strength,
-                                                    Snails = scen$snails,
-                                                    DDF = scen$DDF_strength))
+                       if(write.output == TRUE){
+                         if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
+                           ind_file <- rbind(ind_file,
+                                             select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
+                                               mutate(tot_wp = wp1+wp2+wp3,
+                                                      time = t/12, #years
+                                                      seed = scen$seed,
+                                                      Immunity = scen$imm_strength,
+                                                      Snails = scen$snails,
+                                                      DDF = scen$DDF_strength))
+                         }
                        }
-                       
                        ########## 8. WORMS UPDATE (for next month)
                        
                        ###Juveniles worms
@@ -317,14 +318,16 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
-                     filename <- paste("Ind_out_seed_", scen$seed, 
-                                       "_Imm=", scen$imm_strength, 
-                                       "Sn=", scen$snails, 
-                                       "DDF=", scen$DDF_strength, ".csv", sep="")
-                     #Write
-                     write.csv(ind_file, 
-                               file.path(ind.output.dir, filename),
-                               row.names = F)
+                     if(write.output == TRUE){
+                       filename <- paste("Ind_out_seed_", scen$seed, 
+                                         "_Imm=", scen$imm_strength, 
+                                         "Sn=", scen$snails, 
+                                         "DDF=", scen$DDF_strength, ".RDS", sep="")
+                       #Write
+                       saveRDS(ind_file, 
+                                 file.path(ind.output.dir, filename))
+  #                               row.names = F)
+                     }
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(scen$seed, (12*T)),

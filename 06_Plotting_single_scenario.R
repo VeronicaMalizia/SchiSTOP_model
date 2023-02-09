@@ -23,7 +23,7 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 
 avg_res <- res %>%
   #filter(seed %!in% dead.seeds) %>%
-  group_by(time) %>%
+  group_by(time, Immunity, Snails, DDF) %>%
   summarise(N = mean(pop_size),
             miracidiae = mean(miracidiae),
             cercariae = mean(cercariae),
@@ -44,6 +44,7 @@ Fig1 <- ggplot(res, aes(x=time/12)) +
   geom_line(data=avg_res, aes(y=eggs_prev_SAC, color="KK-based in SAC")) +
   geom_line(aes(y=Heggs_prev, group = seed), color = "coral", alpha = 0.3) +
   geom_line(data=avg_res, aes(y=Heggs_prev, color="High intensities")) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_color_manual(name = "Prevalence:",
                      values = c("True" = "black",
                                 "KK-based" = "dark blue",
@@ -65,7 +66,8 @@ Fig2 <- Fig1 +
 
 #Prevalence of infected snails
 Fig3 <- ggplot(avg_res) +
-  geom_line(aes(x=time, y=snail_prev)) +
+  geom_line(aes(x=time, y=snail_prev, colour = DDF)) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_continuous(name = "Prevalence of infected snails (fraction)",
                      breaks = seq(0, 1, 0.2),
                      limits = c(0, 1),
@@ -80,6 +82,7 @@ Fig4 <- ggplot(res, aes(x=time/12)) +
   geom_line(aes(y=inf_snail, group = seed), color = "red", alpha = 0.3) +
   geom_line(aes(y=susc_snail, group = seed), color = "green", alpha = 0.3) +
   geom_line(aes(y=exp_snail, group = seed), color = "orange", alpha = 0.3) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_continuous(name = "Abundance of snails",
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [Months]",
@@ -100,23 +103,25 @@ cerc <- ggplot(res) +
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
 
-mirac <- ggplot(res) +
-  geom_line(aes(x=time, y=miracidiae, group = seed), color = "grey20", alpha = 0.3) +
-  geom_line(data=avg_res, aes(x=time, y=miracidiae), size=1) +
+mirac <- ggplot(avg_res) +
+  #geom_line(aes(x=time, y=miracidiae, group = seed), color = "grey20", alpha = 0.3) +
+  geom_point(aes(x=time, y=miracidiae, colour = DDF), size=1) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_continuous(name = "Total output of miracidiae",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0, 200000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Time [years]",
-                     limits = c(0, T*12),
+                     #limits = c(500, 2400),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0)
 
 cercVSmirac <- ggplot(avg_res) +
-  geom_point(aes(x=miracidiae, y=cercariae), size=2, alpha=0.5) +
+  geom_point(aes(x=miracidiae, y=cercariae, colour = DDF), size=2, alpha=0.5) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_continuous(name = "Total output of cercariae",
                      #breaks = seq(0, 10000, 1000),
-                     #limits = c(0, 10000),
+                     limits = c(0, 1000000),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "Total output of miracidiae",
                      #limits = c(0, T*12),

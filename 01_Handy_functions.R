@@ -44,7 +44,7 @@ SEI <- function(t, x, parms) {
     #Logistic growth
     #For population growing with limited amount of resources
     beta <- beta0*(1-N_s/k) #Infected snails do not reproduce
-    FOIs <- b*mir/N_s
+    FOIs <- b*mir #/N_s
     #l0*(1-chi^(mir/N)) #Gurarie - non linear FOIs
     
     #Equations

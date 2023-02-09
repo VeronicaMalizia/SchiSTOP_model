@@ -92,9 +92,10 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 300 #number of years simulated
+T <- 200 #number of years simulated
 seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -110,24 +111,30 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
 zetas <- read_excel("Zetas.xlsx")
-stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
+stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds)/100)
+
+stoch_scenarios <- filter(stoch_scenarios, snails == "Strong")
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_moderate.RData")
+load("Matched_alphas_low.RData")
 
 #Heterogeneity of worms
-parms$parasite$k_w = 0.3
+parms$parasite$k_w = 0.15
 
 ################
 #Set output directory to save results
 ################
-setting <- "Moderate_setting_k=030_Age-int"
+setting <- "Trial_FOIsnails_low" #"Moderate_setting_k=015_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
-ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
-dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
-#Empty the Output folder (only if needed)
-#unlink(file.path(output.dir, "/*")) 
+if(write.output == TRUE){
+  ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
+  dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
+  #Empty the Output folder (only if needed)
+  unlink(file.path(ind.output.dir, "/*")) 
+}
+
+#parms$snails$snail_transmission_rate = parms$snails$snail_transmission_rate/100
 
 ################
 #Run the model
@@ -143,12 +150,14 @@ time.end - time.start
 #Population-level results
 #Set endemicity setting:
 pop.output.dir <- file.path(source.dir, "Output/Population/")
-#dir.create(pop.output.dir)
+if(!file.exists(pop.output.dir)){
+  dir.create(pop.output.dir)
+}
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
 res <- bind_rows(results)
-save(res, file = file.path(pop.output.dir, 
-                           paste(setting, ".RData", sep = "")))
+saveRDS(res, file = file.path(pop.output.dir, 
+                           paste(setting, ".RDS", sep = "")))
 
 ################
 #Running plotting code

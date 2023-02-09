@@ -43,7 +43,7 @@ parms <- list(#Demography
                             mortality.rate = 1/100, #1/days of lifespan, Civitello #Gurarie: about 3 months
                             mortality.rate.infection = 1/30, #0.04 1/lifespan.infected, from Civitello. He works with additional mortality
                             infection.rate = 1/30, #1/lifespan of larvae within the snail, before shedding cercariae
-                            snail_transmission_rate = 0.00005, #a combined version of exposure rate and probability of success. invasion
+                            snail_transmission_rate = 5e-08, #a combined version of exposure rate and probability of success. invasion
                             #rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
                             # (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
                             cerc.prod.rate = 50, #1/d per infected snail
