@@ -31,7 +31,7 @@ setwd(source.dir)
 
 #Load population output
 #####Load collated results and produce multi-panel plots
-grid.output.dir <- file.path(source.dir, "Output/Grid_search")
+grid.output.dir <- file.path(source.dir, "Grid search")
 load(file.path(grid.output.dir, 
                paste(setting, ".RData", sep = "")))
 
