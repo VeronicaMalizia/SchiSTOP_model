@@ -34,7 +34,8 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 10
 
-setting <- "Trial_FOIsnails_low" #"Moderate_setting_k=015_Age-int"
+setting <- "Low_Panel3_Age-int" #"Moderate_setting_k=015_Age-int"
+endem <- "Low"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -69,7 +70,7 @@ Fig <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
   geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
   #geom_line(data = res, aes(y = eggs_prev_SAC*100, colour = DDF), alpha = 0.3) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
   #           size=3) +
@@ -112,7 +113,7 @@ Fig +
 
 Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=PHI*100, colour = DDF)) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
   #           size=3) +
@@ -210,7 +211,7 @@ data_toplot <- age_out
 eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
   geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF)) +
   geom_line(aes(colour = DDF)) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Observed egg counts (epg) + 1 \n",
                      #breaks = seq(0, 10000, 200),
@@ -233,7 +234,7 @@ eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
 rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = DDF))+
   geom_pointrange(aes(ymin=rate_lo+0.5, ymax=rate_hi+0.5, colour = DDF)) +
   geom_line(aes(colour = DDF)) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Parasite establishment rate + 0.5 \n",
                      #breaks = seq(0, 20, 2),
@@ -256,7 +257,7 @@ rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = DDF))+
 worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = DDF))+
   geom_pointrange(aes(ymin=wp_lo+0.5, ymax=wp_hi+0.5, colour = DDF)) +
   geom_line(aes(colour = DDF)) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Worm load (pairs) + 0.5 \n",
                 #breaks = seq(0, 10000, 200),
@@ -279,7 +280,7 @@ worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = DDF))+
 dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+0.5, group = DDF))+
   geom_pointrange(aes(ymin=dwp_lo+0.5, ymax=dwp_hi+0.5, colour = DDF)) +
   geom_line(aes(colour = DDF)) +
-  labs(title = "Moderate endemicity setting") +
+  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Cumulated dead worm (pairs) + 0.5 \n",
                 #breaks = seq(0, 10000, 200),

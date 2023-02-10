@@ -92,10 +92,10 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 200 #number of years simulated
+T <- 300 #number of years simulated
 seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- FALSE #disable individual output for grid search (saving time)
+write.output <- TRUE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -110,28 +110,30 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-zetas <- read_excel("Zetas.xlsx")
-stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds)/100)
-
-stoch_scenarios <- filter(stoch_scenarios, snails == "Strong")
+stoch_scenarios <- filter(stoch_scenarios, snails == "Absent" & imm_strength == "Strong")
+zetas <- read_excel("Zetas.xlsx") %>%
+  filter(Endemicity == "High")
+stoch_scenarios <- mutate(stoch_scenarios, 
+                          zeta = 0.000088, #rep(zetas$Zeta_grid_search[1:9], each = seeds),
+                          worms_aggr = 0.1) #rep(zetas$Kw[1:9], each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load("Matched_alphas_low.RData")
 
 #Heterogeneity of worms
-parms$parasite$k_w = 0.15
+#parms$parasite$k_w = 0.1
 
 ################
 #Set output directory to save results
 ################
-setting <- "Trial_FOIsnails_low" #"Moderate_setting_k=015_Age-int"
+setting <- "Low_Panel3_Age-int" #"Moderate_setting_k=015_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
   ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
   dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
   #Empty the Output folder (only if needed)
-  unlink(file.path(ind.output.dir, "/*")) 
+  #unlink(file.path(ind.output.dir, "/*")) 
 }
 
 #parms$snails$snail_transmission_rate = parms$snails$snail_transmission_rate/100

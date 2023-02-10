@@ -29,7 +29,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      
                      #set scenario-specific parameters
                      scen <- stoch_scenarios[k, ]
-                     parms$parasite$zeta = scen$zeta #overall exposure rate.  
+                     parms$parasite$zeta = scen$zeta #overall exposure rate.
+                     parms$parasite$k_w = scen$worms_aggr
                      parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
                                                     scen$imm_strength== "Mild" ~ 0.0005,
                                                     scen$imm_strength== "Strong" ~ 0.005) #immunity slope parameter
@@ -282,6 +283,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                mutate(tot_wp = wp1+wp2+wp3,
                                                       time = t/12, #years
                                                       seed = scen$seed,
+                                                      zeta = scen$zeta,
+                                                      worms_aggr = scen$worms_aggr,
                                                       Immunity = scen$imm_strength,
                                                       Snails = scen$snails,
                                                       DDF = scen$DDF_strength))
@@ -331,6 +334,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(scen$seed, (12*T)),
+                                   zeta = rep(scen$zeta, (12*T)),
+                                   worms_aggr = rep(scen$worms_aggr, (12*T)),
                                    Immunity = rep(scen$imm_strength, (12*T)),
                                    Snails = rep(scen$snails, (12*T)),
                                    DDF= rep(scen$DDF_strength, (12*T)),
