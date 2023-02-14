@@ -31,10 +31,16 @@ setwd(source.dir)
 
 #Load population output
 #####Load collated results and produce multi-panel plots
+<<<<<<< HEAD
+grid.output.dir <- file.path(source.dir, "Grid search")
+load(file.path(grid.output.dir, 
+               paste(setting, ".RData", sep = "")))
+=======
 grid.output.dir <- file.path(source.dir, "Output/Grid_search")
 res <- readRDS(file.path(grid.output.dir, 
                paste(setting, ".RDS", sep = "")))
 max.time <- max(res$time)
+>>>>>>> 9baa95b6ecbe3154b4c2fdac4dfc8772696e200d
 
 #Average by seed
 data_avg <- res %>%
