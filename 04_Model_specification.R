@@ -43,6 +43,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                        scen$DDF_strength== "Mild" ~ 0.0005,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
                      parms$parasite$k_w = scen$worms_aggr
+                     parms$snails$snail_transmission_rate = scen$tr_snails
                      
                      # sink("Sink.txt", append=TRUE)
                      # cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
@@ -226,18 +227,14 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                          m = parms$snails$cerc.mortality)
                          
                          #Set initial conditions from the last day of previous run/month
-                         S0 = newstart[1]
-                         E0 = newstart[2]
-                         I0 = newstart[3]
-                         C0 = newstart[4]
+                         ## Start values for steady state
+                         xstart <- c(S = newstart[1], E = newstart[2], I = newstart[3], C = newstart[4])
+                         
                          ## vector of time steps (30 days)
                          times <- 1:30
                          
-                         ## Start values for steady state
-                         xstart <- c(S = S0, E = E0, I = I0, C = C0)
-                         
                          #Run and solve
-                         out <-  lsoda(xstart, times, SEI, parms.ODE) 
+                         out <-  lsoda(xstart, times, SEI, parms.ODE, verbose = T) 
                          
                          ## Translate the output into a data.frame
                          out2 <- as.data.frame(out)
@@ -285,6 +282,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                       seed = scen$seed,
                                                       zeta = scen$zeta,
                                                       worms_aggr = scen$worms_aggr,
+                                                      tr_snails = scen$tr_snails,
                                                       Immunity = scen$imm_strength,
                                                       Snails = scen$snails,
                                                       DDF = scen$DDF_strength))
@@ -337,6 +335,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    seed = rep(scen$seed, (12*T)),
                                    zeta = rep(scen$zeta, (12*T)),
                                    worms_aggr = rep(scen$worms_aggr, (12*T)),
+                                   tr_snails = rep(scen$tr_snails, (12*T)),
                                    Immunity = rep(scen$imm_strength, (12*T)),
                                    Snails = rep(scen$snails, (12*T)),
                                    DDF= rep(scen$DDF_strength, (12*T)),
