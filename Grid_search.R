@@ -111,11 +111,12 @@ parms$mda$end <- 0
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Strong"),
                                     imm_strength = c("Absent"),
-                                    snails = c("Absent"),
-                                    zeta = exp(runif(50, -9.9, -9.5)),
-                                    worms_aggr = seq(0.1, 0.29, 0.01)))
-                                    # zeta = runif(50, 4*10^(-5), 4*10^(-4)),
-                                    # worms_aggr = seq(0.1, 0.8, 0.1)))
+                                    snails = c("Strong"),
+                                    # zeta = exp(runif(50, -9.9, -9.5)),
+                                    # worms_aggr = seq(0.1, 0.29, 0.01)))
+                                    zeta = runif(40, 10^(-3), 4*10^(-2)),
+                                    worms_aggr = seq(0.1, 0.3, 0.05),
+                                    tr_snails = c(10^(-6), 10^(-5), 10^(-4))))
 
 
 
@@ -128,7 +129,7 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 # stoch_scenarios <- mutate(stoch_scenarios, zeta = rep(zetas$Zeta, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_low.RData")
+load("Matched_alphas_moderate.RData")
 
 #Heterogeneity of worms
 #parms$parasite$k_w = 0.3
@@ -136,7 +137,7 @@ load("Matched_alphas_low.RData")
 ################
 #Set output directory to save results
 ################
-setting <- "Grid_search_onlylow_panel1_DDFstrong"
+setting <- "Grid_search_panel4_DDFstrong"
   #"Moderate_setting_k=030_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
@@ -164,12 +165,18 @@ pop.output.dir <- file.path(source.dir, "Output/Population/")
 if(!file.exists(pop.output.dir)){
   dir.create(pop.output.dir)
 }
+
+#Check indexes without errors (the snail system goes to zero)
+index <- which(sapply(results, length)>2)
+results <- results[index]
+
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
 res <- bind_rows(results)
 saveRDS(res, file = file.path(pop.output.dir, 
                            paste(setting, ".RDS", sep = "")))
 #then read with readRDS
+
 
 ################
 #Running plotting code

@@ -45,7 +45,7 @@ max.time <- max(res$time)
 #Average by seed
 data_avg <- res %>%
   filter(time == max.time) %>%
-  group_by(time, zeta, worms_aggr, Immunity, Snails, DDF) %>%
+  group_by(time, zeta, worms_aggr, tr_snails, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             PHI = mean(Heggs_prev))
             #snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
@@ -69,13 +69,14 @@ data_avg <- res %>%
 #   theme_classic()
 
 #OR
-Fig <- levelplot(eggs_prev_SAC ~ worms_aggr*zeta, data=data_avg[which(data_avg$time==max.time),],
+Fig <- levelplot(eggs_prev_SAC ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
+                 data=data_avg[which(data_avg$time==max.time),],
                  at=c(0.1*0:10),
                  xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
                  main="Heatmap of prevalence in SAC, at the end of simulation.",
                  col.regions = rev(heat.colors(100)))
 
-tiff("Grid search/Panel1_DDFstrong_refined.tif", width=12, height=10, units = "in", res = 300)
+tiff("Grid search/Panel4_DDFstrong.tif", width=12, height=10, units = "in", res = 300)
 Fig 
 dev.off()
 
@@ -94,7 +95,8 @@ dev.off()
 ##Selection
 #Plot prevalence as a function of zeta at the end of simulations
 Fig3 <- filter(data_avg, time == max.time) %>%
-  ggplot(aes(x=zeta, y=eggs_prev_SAC, colour = as.factor(worms_aggr))) +
+  ggplot(aes(x=zeta, y=eggs_prev_SAC, colour = interaction(as.factor(worms_aggr),
+                                                           as.factor(tr_snails)))) +
   geom_point(size = 3, alpha = 0.7) +
   geom_line() + 
   geom_hline(yintercept = 0.6, linetype = "longdash", size = 1) +
