@@ -234,7 +234,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                          times <- 1:30
                          
                          #Run and solve
-                         out <-  lsoda(xstart, times, SEI, parms.ODE, verbose = T) 
+                         out <-  lsoda(xstart, times, SEI, parms.ODE, atol = 1e-4, rtol = 1e-4) #, verbose = T
                          
                          ## Translate the output into a data.frame
                          out2 <- as.data.frame(out)

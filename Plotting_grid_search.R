@@ -27,28 +27,25 @@ setting <- "Grid_search_refined_panel1_DDFstrong"
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
 #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
-setwd(source.dir)
 
 #Load population output
 #####Load collated results and produce multi-panel plots
-<<<<<<< HEAD
+
 grid.output.dir <- file.path(source.dir, "Grid search")
-load(file.path(grid.output.dir, 
-               paste(setting, ".RData", sep = "")))
-=======
-grid.output.dir <- file.path(source.dir, "Output/Grid_search")
+setwd(grid.output.dir)
 res <- readRDS(file.path(grid.output.dir, 
                paste(setting, ".RDS", sep = "")))
 max.time <- max(res$time)
->>>>>>> 9baa95b6ecbe3154b4c2fdac4dfc8772696e200d
+
 
 #Average by seed
 data_avg <- res %>%
   filter(time == max.time) %>%
   group_by(time, zeta, worms_aggr, tr_snails, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            PHI = mean(Heggs_prev))
-            #snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
+            PHI = mean(Heggs_prev),
+            cerc = mean(cercariae),
+            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
 #Check faded-out simulations:
 
@@ -76,11 +73,17 @@ Fig <- levelplot(eggs_prev_SAC ~ as.factor(tr_snails)*zeta | as.factor(worms_agg
                  main="Heatmap of prevalence in SAC, at the end of simulation.",
                  col.regions = rev(heat.colors(100)))
 
-tiff("Grid search/Panel4_DDFstrong.tif", width=12, height=10, units = "in", res = 300)
+tiff(paste(setting, ".tif", sep = ""), width=12, height=10, units = "in", res = 300)
 Fig 
 dev.off()
 
 #Heavy intensity infections
+Fig2 <- levelplot(PHI ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
+                 data=data_avg[which(data_avg$time==max.time),],
+                 at=c(0.1*0:10),
+                 xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
+                 main="Heatmap of prevalence in SAC, at the end of simulation.",
+                 col.regions = rev(heat.colors(100)))
 #OR
 Fig2 <- levelplot(PHI ~ worms_aggr*zeta, data=data_avg[which(data_avg$time==max.time),],
                   at=c(0.1*0:10),
@@ -88,7 +91,7 @@ Fig2 <- levelplot(PHI ~ worms_aggr*zeta, data=data_avg[which(data_avg$time==max.
                   main="Heatmap of heavy prevalence in SAC, at the end of simulation.",
                   col.regions = rev(heat.colors(100)))
 
-tiff("Plots/Grid search/Panel1_DDFstrong_refined_heavy.tif", width=12, height=10, units = "in", res = 300)
+tiff(paste(setting, "_heavy.tif", sep = ""), width=12, height=10, units = "in", res = 300)
 Fig2 
 dev.off()
 
@@ -115,13 +118,41 @@ Fig3 <- filter(data_avg, time == max.time) %>%
   expand_limits(x = 0,y = 0) +
   theme_bw()
 
-tiff("Grid search/Panel1_DDFstrong_simualtions.tif", width=12, height=9, units = "in", res = 300)
+tiff(paste(setting, "_simulations.tif", sep = ""), width=12, height=9, units = "in", res = 300)
 Fig3
 dev.off()
 
+##Plot prevalence of infected snails
+#Plot prevalence as a function of zeta at the end of simulations
+Fig4 <- filter(data_avg, time == max.time) %>%
+  ggplot(aes(x=zeta, y=snail_prev, colour = interaction(as.factor(worms_aggr),
+                                                           as.factor(tr_snails)))) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_line() + 
+  geom_hline(yintercept = 0.6, linetype = "longdash", size = 1) +
+  geom_hline(yintercept = 0.3, linetype = "longdash", size = 1) +
+  geom_hline(yintercept = 0.1, linetype = "longdash", size = 1) +
+  scale_color_discrete(name = "Level of worms \n aggregation") +
+  scale_y_continuous(name = "Prevalence of infection in SAC \n",
+                     breaks = seq(0, 1, 0.2),
+                     limits = c(0, 1),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "\n Transmission parameter on humans [zeta]",
+                     #breaks = seq(0, 4*10^(-4), 0.00005),
+                     #limits = c(0, 1200),
+                     expand = c(0, 0)) +
+  #coord_cartesian(xlim=c(500, (T*12))) +
+  expand_limits(x = 0,y = 0) +
+  theme_bw()
+
+tiff(paste(setting, "_simulations.tif", sep = ""), width=12, height=9, units = "in", res = 300)
+Fig4
+dev.off()
+
+
 #High (60%)
 #I chose:
-f <- filter(data_avg, worms_aggr==0.2 #& time == max.time 
+f <- filter(data_avg, worms_aggr>0.2 #& time == max.time 
             & eggs_prev_SAC >= 0.6 & eggs_prev_SAC <= 0.61)
 f$zeta[1]
 #zeta = 0.000164 & k_w = 0.2

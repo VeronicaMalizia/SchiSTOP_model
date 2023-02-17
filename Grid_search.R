@@ -137,7 +137,7 @@ load("Matched_alphas_moderate.RData")
 ################
 #Set output directory to save results
 ################
-setting <- "Grid_search_panel4_DDFstrong"
+setting <- "Grid_search_panel7_DDFstrong"
   #"Moderate_setting_k=030_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
@@ -161,7 +161,7 @@ time.end - time.start
 ################
 #Population-level results
 #Set endemicity setting:
-pop.output.dir <- file.path(source.dir, "Output/Population/")
+pop.output.dir <- file.path(source.dir, "Grid search")
 if(!file.exists(pop.output.dir)){
   dir.create(pop.output.dir)
 }
