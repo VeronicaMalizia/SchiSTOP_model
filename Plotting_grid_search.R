@@ -9,7 +9,7 @@
 
 rm(list = ls())
 
-#.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(tidyverse)
 library(readxl)
 library(ggridges)
@@ -17,12 +17,13 @@ library(patchwork)
 library(egg)
 library(rstudioapi)
 library(lattice)
+library(latticeExtra)
 
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
-setting <- "Grid_search_refined_panel1_DDFstrong"
+setting <- "Grid_search_panel7_DDFstrong"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -31,16 +32,10 @@ setwd(source.dir)
 
 #Load population output
 #####Load collated results and produce multi-panel plots
-<<<<<<< HEAD
 grid.output.dir <- file.path(source.dir, "Grid search")
-load(file.path(grid.output.dir, 
-               paste(setting, ".RData", sep = "")))
-=======
-grid.output.dir <- file.path(source.dir, "Output/Grid_search")
 res <- readRDS(file.path(grid.output.dir, 
                paste(setting, ".RDS", sep = "")))
 max.time <- max(res$time)
->>>>>>> 9baa95b6ecbe3154b4c2fdac4dfc8772696e200d
 
 #Average by seed
 data_avg <- res %>%
@@ -58,16 +53,6 @@ data_avg <- res %>%
 # Prevalence heatmap
 
 ## Prevalence of any infection in school-aged-children (SAC) 
-
-# Fig <- filter(data_avg, time==max.time) %>% 
-#   
-#   ggplot(aes(x = as.factor(worms_aggr), y = zeta)) +
-#   geom_point(aes(colour = eggs_prev_SAC), size = 6) +
-#   #geom_raster(aes(fill = eggs_prev_SAC)) +
-#   scale_colour_gradient2(low="yellow", mid="orange", high="red", 
-#                        midpoint=0.3, limits=range(data_avg$eggs_prev_SAC)) +
-#   theme_classic()
-
 #OR
 Fig <- levelplot(eggs_prev_SAC ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
                  data=data_avg[which(data_avg$time==max.time),],
@@ -80,8 +65,16 @@ tiff("Grid search/Panel4_DDFstrong.tif", width=12, height=10, units = "in", res 
 Fig 
 dev.off()
 
+
 #Heavy intensity infections
-#OR
+Fig2 <- levelplot(PHI ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
+                 data=data_avg[which(data_avg$time==max.time),],
+                 at=c(0.1*0:10),
+                 xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
+                 main="Heatmap of prevalence in SAC, at the end of simulation.",
+                 col.regions = rev(heat.colors(100)))
+
+#OR (without snails)
 Fig2 <- levelplot(PHI ~ worms_aggr*zeta, data=data_avg[which(data_avg$time==max.time),],
                   at=c(0.1*0:10),
                   xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
