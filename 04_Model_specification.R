@@ -16,7 +16,7 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), nrow(stoch_scenarios)))
+cluster <- makeCluster(min(parallel::detectCores(logical = TRUE), nrow(stoch_scenarios)))
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
