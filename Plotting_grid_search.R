@@ -69,7 +69,7 @@ data_avg <- res %>%
 Fig <- levelplot(eggs_prev_SAC ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
                  data=data_avg[which(data_avg$time==max.time),],
                  at=c(0.1*0:10),
-                 xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
+                 xlab="Transmission parameter on snails", ylab = "Transmission parameter on humans",
                  main="Heatmap of prevalence in SAC, at the end of simulation.",
                  col.regions = rev(heat.colors(100)))
 
@@ -81,7 +81,7 @@ dev.off()
 Fig2 <- levelplot(PHI ~ as.factor(tr_snails)*zeta | as.factor(worms_aggr), 
                  data=data_avg[which(data_avg$time==max.time),],
                  at=c(0.1*0:10),
-                 xlab="Level of worms aggregation", ylab = "Transmission parameter on humans",
+                 xlab="Transmission parameter on snails", ylab = "Transmission parameter on humans",
                  main="Heatmap of prevalence in SAC, at the end of simulation.",
                  col.regions = rev(heat.colors(100)))
 #OR
@@ -133,7 +133,7 @@ Fig4 <- filter(data_avg, time == max.time) %>%
   geom_hline(yintercept = 0.3, linetype = "longdash", size = 1) +
   geom_hline(yintercept = 0.1, linetype = "longdash", size = 1) +
   scale_color_discrete(name = "Level of worms \n aggregation") +
-  scale_y_continuous(name = "Prevalence of infection in SAC \n",
+  scale_y_continuous(name = "Prevalence of infection in snails \n",
                      breaks = seq(0, 1, 0.2),
                      limits = c(0, 1),
                      expand = c(0, 0)) +
@@ -152,26 +152,27 @@ dev.off()
 
 #High (60%)
 #I chose:
-f <- filter(data_avg, worms_aggr>0.2 #& time == max.time 
+f <- filter(data_avg, tr_snails==1e-9 #worms_aggr>0.2 
             & eggs_prev_SAC >= 0.6 & eggs_prev_SAC <= 0.61)
+f
 f$zeta[1]
 #zeta = 0.000164 & k_w = 0.2
-high <- filter(res, (zeta==f$zeta[1] & worms_aggr == f$worms_aggr[1])) %>%
+high <- filter(res, (zeta==f$zeta[1] & worms_aggr == f$worms_aggr[1] & tr_snails == f$tr_snails[1])) %>%
   mutate(Endemicity = "High")
 
 #Moderate (30%)
-f2 <- filter(data_avg, worms_aggr==0.1 & time == max.time 
+f2 <- filter(data_avg, tr_snails==1e-9 #worms_aggr==0.1  
              & eggs_prev_SAC >= 0.3 & eggs_prev_SAC <= 0.31)
 f2
 f2$zeta[1]
-mod <- filter(res, (zeta==f2$zeta[1] & worms_aggr == f2$worms_aggr[1])) %>%
+mod <- filter(res, (zeta==f2$zeta[1] & worms_aggr == f2$worms_aggr[1] & tr_snails == f2$tr_snails[1])) %>%
   mutate(Endemicity = "Moderate")
 
 #Low (10%)
-f3 <- filter(data_avg, round(worms_aggr, digits = 2)==0.27 
-             & eggs_prev_SAC >= 0.08 & eggs_prev_SAC <= 0.12)
+f3 <- filter(data_avg, tr_snails==1e-9 #round(worms_aggr, digits = 2)==0.27 
+             & eggs_prev_SAC >= 0.07 & eggs_prev_SAC <= 0.12)
 f3
-low <- filter(res, (zeta==f3$zeta[1] & worms_aggr == f3$worms_aggr[1])) %>%
+low <- filter(res, (zeta==f3$zeta[1] & worms_aggr == f3$worms_aggr[1] & tr_snails == f3$tr_snails[1])) %>%
   mutate(Endemicity = "Low")
 
 #Check for the equilibrium
@@ -191,7 +192,7 @@ Eq <- bind_rows(high, mod, low) %>%
   expand_limits(x = 0,y = 0) +
   theme_bw() 
 
-tiff("Grid search/Panel1_DDFstrong_equilibrium_onlylow.tif", width=12, height=9, units = "in", res = 300)
+tiff(paste(setting, "_simulations.tif", sep = ""), width=12, height=9, units = "in", res = 300)
 Eq
 dev.off()
 
