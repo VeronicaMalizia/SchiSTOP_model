@@ -48,3 +48,6 @@ vignettes/*.pdf
 /Output*
 /Plots/
 /Population_output/
+
+# Setting simulation file
+Setting_simulation_scenario.R
