@@ -4,6 +4,7 @@
 
 # Session Data files
 *.RData
+*.RDS
 
 # User-specific files
 .Ruserdata
@@ -48,6 +49,7 @@ vignettes/*.pdf
 /Output*
 /Plots/
 /Population_output/
+/Grid search/
 
 # Setting simulation file
 Setting_simulation_scenario.R

@@ -116,8 +116,8 @@ if(!file.exists(pop.output.dir)){
 }
 
 #Check indexes without errors (the snail system goes to zero)
-# index <- which(sapply(results, length)>2)
-# results <- results[index]
+index <- which(sapply(results, length)>2)
+results <- results[index]
 
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
