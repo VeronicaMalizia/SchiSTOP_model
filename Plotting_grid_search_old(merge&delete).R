@@ -9,7 +9,7 @@
 
 rm(list = ls())
 
-.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+#.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(tidyverse)
 library(readxl)
 library(ggridges)
@@ -32,7 +32,7 @@ source.dir <- dirname(getActiveDocumentContext()$path)
 #Load population output
 #####Load collated results and produce multi-panel plots
 
-grid.output.dir <- file.path(source.dir, "Grid search")
+grid.output.dir <- file.path(source.dir, "Grid search/Plots")
 setwd(grid.output.dir)
 res <- readRDS(file.path(grid.output.dir, 
                paste(setting, ".RDS", sep = "")))
@@ -155,27 +155,27 @@ dev.off()
 
 #High (60%)
 #I chose:
-f <- filter(data_avg, tr_snails==1e-10 & worms_aggr==0.2 
+f <- filter(data_avg, tr_snails==1e-10 #& worms_aggr==0.2 
             & eggs_prev_SAC >= 0.59 & eggs_prev_SAC <= 0.61)
 f
 f$zeta[1]
 #zeta = 0.000164 & k_w = 0.2
-high <- filter(res, (zeta==f$zeta[1] & worms_aggr == f$worms_aggr[1] & tr_snails == f$tr_snails[1])) %>%
+high <- filter(res, (zeta==f$zeta[3] & worms_aggr == f$worms_aggr[3] & tr_snails == f$tr_snails[1])) %>%
   mutate(Endemicity = "High")
 
 #Moderate (30%)
-f2 <- filter(data_avg, tr_snails==1e-10 & worms_aggr==0.2  
-             & eggs_prev_SAC >= 0.26 & eggs_prev_SAC <= 0.31)
+f2 <- filter(data_avg, tr_snails==1e-9 #& worms_aggr==0.2  
+             & eggs_prev_SAC >= 0.29 & eggs_prev_SAC <= 0.31)
 f2
 f2$zeta[1]
 mod <- filter(res, (zeta==f2$zeta[1] & worms_aggr == f2$worms_aggr[1] & tr_snails == f2$tr_snails[1])) %>%
   mutate(Endemicity = "Moderate")
 
 #Low (10%)
-f3 <- filter(data_avg, tr_snails==1e-10 & round(worms_aggr, digits = 2)==0.1 
+f3 <- filter(data_avg, tr_snails==1e-10 #& round(worms_aggr, digits = 2)<0.3 
              & eggs_prev_SAC >= 0.07 & eggs_prev_SAC <= 0.12)
 f3
-low <- filter(res, (zeta==f3$zeta[1] & worms_aggr == f3$worms_aggr[1] & tr_snails == f3$tr_snails[1])) %>%
+low <- filter(res, (zeta==f3$zeta[6] & worms_aggr == f3$worms_aggr[6] & tr_snails == f3$tr_snails[6])) %>%
   mutate(Endemicity = "Low")
 
 #Check for the equilibrium
