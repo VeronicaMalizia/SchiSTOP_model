@@ -14,9 +14,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
                       fig.width=12, fig.height=10)
 ```
 
-# Simulation results
 
-Heterogeneity of worms in the population: 0.15
 
 ```{r setting, echo=FALSE, include=FALSE}
 
@@ -34,14 +32,29 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 10
 
-setting <- "Low_Panel3_Age-int" #"Moderate_setting_k=015_Age-int"
-endem <- "Low"
+setting <- "High_Complete_Age-int" #"Moderate_setting_k=015_Age-int"
+endem <- "Moderate"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
   #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 ```
+
+# Simulation setting
+
+```{r parameters, echo=FALSE, results='asis'}
+library(knitr)
+kable(caption = "Simulaition setting and transmission parameters",
+      read_excel("Zetas.xlsx") %>%
+        filter(Endemicity == endem, Immunity != "Strong") %>%
+        select(Endemicity,	Immunity, Snails,	DDF,	Zeta_grid_search,	Kw,	`Transmission on snails`) %>%
+        mutate(`Transmission on snails` = format(`Transmission on snails`, scientific = T))
+      )
+
+```
+
+# Simulation results
 
 ```{r loading population data, echo=FALSE}
 #Load population output
@@ -55,6 +68,10 @@ data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             PHI = mean(Heggs_prev),
+            miracidiae = mean(miracidiae),
+            cercariae = mean(cercariae),
+            snail_inf = mean(inf_snail),
+            snail_exp = mean(exp_snail),
             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
 ```
@@ -136,6 +153,20 @@ Fig2
 #dev.off()
 ```
 
+## Check: ratio of miracidiae over cercariae in the environment
+```{r mirac and cerc, echo=FALSE}
+cercVSmirac <- ggplot(data_avg, aes(x=time/12)) +
+  geom_line(aes(y=miracidiae/cercariae, colour = DDF), alpha=0.5) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), scales = "free") +
+  scale_y_continuous(name = "Ratio miracidiae / cercariae",
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "Time [years]",
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0)
+
+cercVSmirac
+```
+
 # Individual-level results
 
 ```{r loading individual data, echo=FALSE, include=FALSE}
@@ -147,6 +178,7 @@ ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
                        pattern = "*.RDS", full.names = TRUE) %>% 
   lapply(readRDS) %>%              # Store all files in list
+  #lapply(read_csv, show_col_types = F) %>%
   bind_rows %>%
   filter(time == 131)
 

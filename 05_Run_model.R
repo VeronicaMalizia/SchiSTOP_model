@@ -22,6 +22,7 @@ library(doParallel)
 library(patchwork)
 library(profvis)
 library(rstudioapi)
+library(beepr)
 
 ################
 #Initial population
@@ -95,13 +96,16 @@ C0=0
 T <- 300 #number of years simulated
 seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- TRUE #disable individual output for grid search (saving time)
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
 ################
 #For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
 #Combinations of modelling scenarios and stochastic seed
+
+# parms$mda$start = 0 #150
+# parms$mda$end = 0 #160
 
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
@@ -110,23 +114,28 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-stoch_scenarios <- filter(stoch_scenarios, snails == "Absent" & imm_strength == "Strong")
+stoch_scenarios <- filter(stoch_scenarios, DDF_strength == "Absent" &
+                            snails == "Mild" & imm_strength == "Mild")
 zetas <- read_excel("Zetas.xlsx") %>%
-  filter(Endemicity == "High")
+  filter(Endemicity == "Moderate", Snails == "Mild" & Immunity == "Absent")
 stoch_scenarios <- mutate(stoch_scenarios, 
-                          zeta = 0.000088, #rep(zetas$Zeta_grid_search[1:9], each = seeds),
-                          worms_aggr = 0.1) #rep(zetas$Kw[1:9], each = seeds))
+                          zeta = 0.162, #rep(zetas$Zeta_grid_search, each = seeds),
+                          worms_aggr = 0.18, #rep(zetas$Kw, each = seeds),
+                          tr_snails = 6e-11) #rep(zetas$`Transmission on snails`, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_low.RData")
+load("Matched_alphas_high.RData")
 
-#Heterogeneity of worms
+#Specific parameters to be changed
+# parms$snails$snail_transmission_rate = 5e-10
+ parms$parasite$ext.foi$value = 0.5
+ parms$parasite$ext.foi$duration = 1
 #parms$parasite$k_w = 0.1
 
 ################
 #Set output directory to save results
 ################
-setting <- "Low_Panel3_Age-int" #"Moderate_setting_k=015_Age-int"
+setting <- "ciao" #"Moderate_setting_k=015_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
@@ -145,6 +154,7 @@ time.start <- Sys.time()
 source("04_Model_specification.R")
 time.end <- Sys.time()
 time.end - time.start
+beep()
 
 ################
 #Collating and saving population-level results 
