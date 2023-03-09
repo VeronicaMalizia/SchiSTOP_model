@@ -96,7 +96,7 @@ C0=0
 T <- 300 #number of years simulated
 seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- FALSE #disable individual output for grid search (saving time)
+write.output <- TRUE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -114,35 +114,48 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-stoch_scenarios <- filter(stoch_scenarios, DDF_strength == "Absent" &
-                            snails == "Mild" & imm_strength == "Mild")
+
+######
+#IF LOW ENDEM
+stoch_scenarios <- stoch_scenarios[61:270,]
+parms$parasite$ext.foi$value = 0.1 #0.1
+parms$parasite$ext.foi$duration = 0.25 #1/12 #years
+#######
+#IF LOW ENDEM
+parms$parasite$ext.foi$value = 2 #0.1
+######
+
+# stoch_scenarios <- filter(stoch_scenarios, #DDF_strength == "Absent" &
+#                             snails == "Strong" & imm_strength == "Absent")
 zetas <- read_excel("Zetas.xlsx") %>%
-  filter(Endemicity == "Moderate", Snails == "Mild" & Immunity == "Absent")
+  filter(Endemicity == "High")  #& Snails == "Strong" & Immunity == "Absent") # & DDF == "Absent")
 stoch_scenarios <- mutate(stoch_scenarios, 
-                          zeta = 0.162, #rep(zetas$Zeta_grid_search, each = seeds),
-                          worms_aggr = 0.18, #rep(zetas$Kw, each = seeds),
-                          tr_snails = 6e-11) #rep(zetas$`Transmission on snails`, each = seeds))
+                          zeta = rep(zetas$Zeta_grid_search, each = seeds),
+                          worms_aggr = rep(zetas$Kw, each = seeds),
+                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load("Matched_alphas_high.RData")
 
 #Specific parameters to be changed
 # parms$snails$snail_transmission_rate = 5e-10
- parms$parasite$ext.foi$value = 0.5
- parms$parasite$ext.foi$duration = 1
 #parms$parasite$k_w = 0.1
 
 ################
 #Set output directory to save results
 ################
-setting <- "ciao" #"Moderate_setting_k=015_Age-int"
+setting <- "High_complete_Age-int"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
   ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
-  dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
+  if(!file.exists(ind.output.dir)){
+    dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
+  }
+  if(file.exists(ind.output.dir)){
   #Empty the Output folder (only if needed)
-  #unlink(file.path(ind.output.dir, "/*")) 
+  unlink(file.path(ind.output.dir, "/*")) 
+  }
 }
 
 #parms$snails$snail_transmission_rate = parms$snails$snail_transmission_rate/100

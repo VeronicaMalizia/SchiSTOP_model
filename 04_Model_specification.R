@@ -302,7 +302,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        #First stage juveniles(new acquired)
                        pop$jw1 = rpois(nrow(pop), pop$rate) 
-                       if(t < parms$parasite$ext.foi$duration*12)
+                       if(t <= parms$parasite$ext.foi$duration*12)
                          pop$jw1 = pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
                        
                        ### Adults worm pairs
@@ -324,11 +324,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        filename <- paste("Ind_out_seed_", scen$seed,
                                          "_Imm=", scen$imm_strength,
                                          "Sn=", scen$snails,
-                                         "DDF=", scen$DDF_strength, ".csv", sep="")
+                                         "DDF=", scen$DDF_strength, ".RDS", sep="")
                        #Write
                        saveRDS(ind_file,
-                                 file.path(ind.output.dir, filename),
-                                 row.names = F)
+                                 file.path(ind.output.dir, filename))
                      }
                      
                      res <- tibble(time = 1:(12*T),

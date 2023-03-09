@@ -1,7 +1,7 @@
 ---
-title: "Regulating mechanisms on Schistosomiasis transmission"
+title: "Regulating mechanisms for Schistosomiasis transmission"
 author: "Veronica Malizia"
-date: '19-01-2023'
+date: '07-03-2023'
 output: html_document
 ---
 
@@ -13,8 +13,6 @@ rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
                       fig.width=12, fig.height=10)
 ```
-
-
 
 ```{r setting, echo=FALSE, include=FALSE}
 
@@ -33,7 +31,7 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 seeds <- 10
 
 setting <- "High_Complete_Age-int" #"Moderate_setting_k=015_Age-int"
-endem <- "Moderate"
+endem <- "High"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -43,11 +41,13 @@ setwd(source.dir)
 
 # Simulation setting
 
+## Moderate endemicity setting
+
 ```{r parameters, echo=FALSE, results='asis'}
 library(knitr)
-kable(caption = "Simulaition setting and transmission parameters",
+kable(caption = "Simulation setting and transmission parameters",
       read_excel("Zetas.xlsx") %>%
-        filter(Endemicity == endem, Immunity != "Strong") %>%
+        filter(Endemicity == endem) %>%
         select(Endemicity,	Immunity, Snails,	DDF,	Zeta_grid_search,	Kw,	`Transmission on snails`) %>%
         mutate(`Transmission on snails` = format(`Transmission on snails`, scientific = T))
       )
@@ -63,7 +63,27 @@ pop.output.dir <- file.path(source.dir, "Output/Population")
 res <- readRDS(file.path(pop.output.dir, 
                paste(setting, ".RDS", sep = "")))
 
+if(endem=="High"){
+  res <- res[- which(res$Immunity=="Absent" & res$Snails=="Absent" & res$DDF=="Absent"),]
+}
+#Computing faded-out runs at pre-control (149 ys is soon before MDA)
+faided <- res %>%
+  filter(time==149*12) %>%
+  group_by(Immunity, Snails, DDF) %>%
+  summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
+n_faided <- length(which(faided$faided_seed>0))
+
+#Computing runs that get eliminated after MDA:
+eliminated <- res %>%
+  filter(time==3600) %>%
+  group_by(Immunity, Snails, DDF) %>%
+  summarise(dead_seed = length(which(eggs_prev_SAC==0))*100/seeds)
+
 #Average by seed
+if(n_faided>0){
+  res <- res[- which(res$time==149*12 & res$eggs_prev_SAC==0), ]
+}
+  
 data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
@@ -78,13 +98,33 @@ data_avg <- res %>%
 
 # Prevalence timelines
 
+```{r failed runs, echo=FALSE, results='asis'}
+library(knitr)
+
+if(endem=="Low"){
+  kable(caption = "Faded-out runs at pre-control",
+        faided %>%
+          mutate(faided_seed = paste(faided_seed, "%", sep = " "))
+        )
+
+  
+kable(caption = "Eliminated runs after 10 ys MDA",
+      eliminated %>%
+          mutate(dead_seed = paste(dead_seed, "%", sep = " "))
+      )
+}
+```
+
 ## Prevalence of any infection in school-aged-children (SAC)
 
 Solid lines show prevalence of infection in SAC. Dashed lines show the underlying prevalence of infection on snails (shedding).
 
 ```{r SAC prev, echo=FALSE}
+
+
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
+  geom_line(data = res, aes(y=eggs_prev_SAC*100, group = seed), alpha = 0.05) +
   geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
   #geom_line(data = res, aes(y = eggs_prev_SAC*100, colour = DDF), alpha = 0.3) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
@@ -135,8 +175,8 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
   #           size=3) +
   scale_y_continuous(name = "Prevalence of heavy infections (%) \n",
-                     breaks = seq(0, 10, 2),
-                     limits = c(0, 10),
+                     breaks = seq(0, 100, 5), #1 l - 2 m - 5 h
+                     limits = c(0, 30), #2 l - 10 m - 30 h
                      expand = c(0, 0)) +
   scale_x_continuous(name = "\n Time [Years]",
                      #limits = c(0, 1200),
@@ -154,6 +194,7 @@ Fig2
 ```
 
 ## Check: ratio of miracidiae over cercariae in the environment
+
 ```{r mirac and cerc, echo=FALSE}
 cercVSmirac <- ggplot(data_avg, aes(x=time/12)) +
   geom_line(aes(y=miracidiae/cercariae, colour = DDF), alpha=0.5) +
@@ -180,7 +221,11 @@ data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
   lapply(readRDS) %>%              # Store all files in list
   #lapply(read_csv, show_col_types = F) %>%
   bind_rows %>%
-  filter(time == 131)
+  filter(time == 141)
+
+if(endem=="High"){
+  data_all <- data_all[- which(data_all$Immunity=="Absent" & data_all$Snails=="Absent" & data_all$DDF=="Absent"),]
+}
 
 # Combine data sets into one
 #Aggregate by age groups
@@ -195,19 +240,19 @@ age_out <- data_all %>%
                                age>15 & age<=30 ~ "15_30",
                                age>30 & age<=40 ~ "30_40",
                                age>40 ~ "40_90")) %>% 
-  group_by(time, age_group, Immunity, Snails, DDF) %>% #sex not for now
-  summarise(epg_mean = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group
-            wp_mean = mean(tot_wp),
-            dwp_mean = mean(cum_dwp), 
-            rate_mean = mean(rate),
-            epg_lo = ci(ec*24)[1],
-            epg_hi = ci(ec*24)[2],
-            wp_lo = ci(tot_wp)[1],
-            wp_hi = ci(tot_wp)[2],
-            dwp_lo = ci(cum_dwp)[1],
-            dwp_hi = ci(cum_dwp)[2],
-            rate_lo = ci(rate)[1],
-            rate_hi = ci(rate)[2]) 
+  group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+  summarise(epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that age group
+            wp = mean(tot_wp),
+            dwp = mean(cum_dwp), 
+            rate = mean(rate))
+            # epg_lo = ci(ec*24)[1],
+            # epg_hi = ci(ec*24)[2],
+            # wp_lo = ci(tot_wp)[1],
+            # wp_hi = ci(tot_wp)[2],
+            # dwp_lo = ci(cum_dwp)[1],
+            # dwp_hi = ci(cum_dwp)[2],
+            # rate_lo = ci(rate)[1],
+            # rate_hi = ci(rate)[2]) 
 
 age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "1_5",
@@ -219,23 +264,21 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
 #save(age_out, file = file.path(output.dir, "Collated_time131.RData"))
 
 #Average over seeds
-data_toplot <- age_out 
-
-# %>%
-#   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
-#   group_by(age_group, Immunity, Snails, DDF) %>%
-#   summarise(epg_mean = mean(epg),
-#             epg_lo = ci(epg)[1],
-#             epg_hi = ci(epg)[2],
-#             wp_mean = mean(wp),
-#             wp_lo = ci(wp)[1],
-#             wp_hi = ci(wp)[2],
-#             dwp_mean = mean(dwp),
-#             dwp_lo = ci(dwp)[1],
-#             dwp_hi = ci(dwp)[2],
-#             rate_mean = mean(rate),
-#             rate_lo = ci(rate)[1],
-#             rate_hi = ci(rate)[2])
+data_toplot <- age_out %>%
+  #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
+  group_by(age_group, Immunity, Snails, DDF) %>%
+  summarise(epg_mean = mean(epg),
+            epg_lo = ci(epg)[1],
+            epg_hi = ci(epg)[2],
+            wp_mean = mean(wp),
+            wp_lo = ci(wp)[1],
+            wp_hi = ci(wp)[2],
+            dwp_mean = mean(dwp),
+            dwp_lo = ci(dwp)[1],
+            dwp_hi = ci(dwp)[2],
+            rate_mean = mean(rate),
+            rate_lo = ci(rate)[1],
+            rate_hi = ci(rate)[2])
 ```
 
 ```{r plot functions, echo=FALSE}
@@ -247,7 +290,7 @@ eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Observed egg counts (epg) + 1 \n",
                      #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 3000),
+                limits = c(0.5, 8000), #3000 l-m 8000 high
                      #expand = c(0, 0)
                 ) +
   scale_x_discrete(name = "\n Age group [years]") +
@@ -270,7 +313,7 @@ rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = DDF))+
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Parasite establishment rate + 0.5 \n",
                      #breaks = seq(0, 20, 2),
-                     limits = c(0.5, 20),
+                     limits = c(0.5, 80), #20 l-m 80 high
                      #expand = c(0, 0)
   ) +
   scale_x_discrete(name = "\n Age group [years]") +
@@ -293,7 +336,7 @@ worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = DDF))+
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Worm load (pairs) + 0.5 \n",
                 #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 1000),
+                limits = c(0.5, 5000), #1000 l-m #5000 high
                 #expand = c(0, 0)
   ) +
   scale_x_discrete(name = "\n Age group [years]") +
@@ -356,20 +399,34 @@ rate
 dead_worms
 ```
 
-## Average worm pairs and epg in the whole population
+<!-- ## Average worm pairs and epg in the whole population -->
 
-```{r avg worms, echo=FALSE, results='asis'}
-library(knitr)
-kable(caption = "Population mean and 95%-CI of worm burdens and observed epg",
-      data_all %>%
-        filter(time == 131) %>%
-        #filter(seed %!in% dead.seeds) %>%
-        group_by(Immunity, Snails, DDF) %>% #sex not for now
-        summarise(wp_mean = mean(tot_wp),
-                  wp_lo = ci(tot_wp)[1],
-                  wp_hi = ci(tot_wp)[2],
-                  epg_mean = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group
-                  epg_lo = ci(ec*24)[1],
-                  epg_hi = ci(ec*24)[2])
-)
-```
+<!-- ```{r avg worms, echo=FALSE, results='asis'} -->
+
+<!-- library(knitr) -->
+
+<!-- kable(caption = "Population mean and 95%-CI of worm burdens and observed epg", -->
+
+<!--       data_all %>% -->
+
+<!--         filter(time == 131) %>% -->
+
+<!--         #filter(seed %!in% dead.seeds) %>% -->
+
+<!--         group_by(Immunity, Snails, DDF) %>% #sex not for now -->
+
+<!--         summarise(wp_mean = mean(tot_wp), -->
+
+<!--                   wp_lo = ci(tot_wp)[1], -->
+
+<!--                   wp_hi = ci(tot_wp)[2], -->
+
+<!--                   epg_mean = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that sex-age group -->
+
+<!--                   epg_lo = ci(ec*24)[1], -->
+
+<!--                   epg_hi = ci(ec*24)[2]) -->
+
+<!-- ) -->
+
+<!-- ``` -->
