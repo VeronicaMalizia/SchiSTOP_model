@@ -18,7 +18,7 @@ parms <- list(#Demography
                                v = 1, #Transmission probability
                                zeta = 0.004, #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
                                ext.foi = list(value = 1, #monthly
-                                              duration = 3), #years
+                                              duration = 2), #years
                                Tw = 60, #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
                                pp = 3, #Pre-patent period (months)
                                eggs = list(alpha = 0.14, #expected number of eggs per sample per worm pair (Sake 1996)

@@ -94,7 +94,7 @@ C0=0
 #Simulation settings
 ################
 T <- 300 #number of years simulated
-seeds <- 10
+seeds <- 30
 fr <- 10 #frequency for printing to file the individual output [years]
 write.output <- TRUE #disable individual output for grid search (saving time)
 
@@ -121,21 +121,21 @@ stoch_scenarios <- stoch_scenarios[61:270,]
 parms$parasite$ext.foi$value = 0.1 #0.1
 parms$parasite$ext.foi$duration = 0.25 #1/12 #years
 #######
-#IF LOW ENDEM
+#IF HIGH ENDEM
 parms$parasite$ext.foi$value = 2 #0.1
 ######
 
-# stoch_scenarios <- filter(stoch_scenarios, #DDF_strength == "Absent" &
-#                             snails == "Strong" & imm_strength == "Absent")
-zetas <- read_excel("Zetas.xlsx") %>%
-  filter(Endemicity == "High")  #& Snails == "Strong" & Immunity == "Absent") # & DDF == "Absent")
+# stoch_scenarios <- filter(stoch_scenarios, DDF_strength == "Absent" &
+#                             snails == "Absent" & imm_strength == "Absent")
+zetas <- read_excel("Zetas_new.xlsx") %>%
+  filter(Endemicity == "Moderate") #& Snails == "Mild" & Immunity == "Strong" & DDF == "Strong")
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_high.RData")
+load("Matched_alphas_moderate.RData")
 
 #Specific parameters to be changed
 # parms$snails$snail_transmission_rate = 5e-10
@@ -144,7 +144,7 @@ load("Matched_alphas_high.RData")
 ################
 #Set output directory to save results
 ################
-setting <- "High_complete_Age-int"
+setting <- "Moderate_complete"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
