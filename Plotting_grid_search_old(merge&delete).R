@@ -23,7 +23,7 @@ library(latticeExtra)
 geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
-setting <- "Grid_search_panel7_DDFstrong"
+setting <- "Grid_search_panel4_DDFstrong"
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -117,7 +117,7 @@ Fig3 <- filter(data_avg, time == max.time) %>%
                      #breaks = seq(0, 4*10^(-4), 0.00005),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  #coord_cartesian(xlim=c(500, (T*12))) +
+  #coord_cartesian(xlim=c(0, 0.025), ylim = c(0, 0.2)) +
   expand_limits(x = 0,y = 0) +
   theme_bw()
 
@@ -132,8 +132,6 @@ Fig4 <- filter(data_avg, time == max.time) %>%
                                                            as.factor(tr_snails)))) +
   geom_point(size = 3, alpha = 0.7) +
   geom_line() + 
-  geom_hline(yintercept = 0.6, linetype = "longdash", size = 1) +
-  geom_hline(yintercept = 0.3, linetype = "longdash", size = 1) +
   geom_hline(yintercept = 0.1, linetype = "longdash", size = 1) +
   scale_color_discrete(name = "Worms aggregation - \n Transmission on snails") +
   scale_y_continuous(name = "Prevalence of infection in snails \n",
@@ -144,7 +142,7 @@ Fig4 <- filter(data_avg, time == max.time) %>%
                      #breaks = seq(0, 4*10^(-4), 0.00005),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  #coord_cartesian(xlim=c(500, (T*12))) +
+  #coord_cartesian(xlim=c(0, 0.025), ylim = c(0, 0.1)) +
   expand_limits(x = 0,y = 0) +
   theme_bw()
 
@@ -152,6 +150,31 @@ tiff(paste(setting, "_simulations_snails.tif", sep = ""), width=12, height=9, un
 Fig4
 dev.off()
 
+#Plot prevalence as a function of zeta at the end of simulations
+Fig5 <- filter(data_avg, time == max.time) %>%
+  ggplot(aes(x=zeta, y=PHI, colour = interaction(as.factor(worms_aggr),
+                                                           as.factor(tr_snails)))) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_line() + 
+  geom_hline(yintercept = 0.2, linetype = "longdash", size = 1) +
+  geom_hline(yintercept = 0.06, linetype = "longdash", size = 1) +
+  geom_hline(yintercept = 0.001, linetype = "longdash", size = 1) +
+  scale_color_discrete(name = "Worms aggregation - \n Transmission on snails") +
+  scale_y_continuous(name = "Prevalence of heavy infection in SAC \n",
+                     breaks = seq(0, 1, 0.2),
+                     limits = c(0, 0.7),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "\n Transmission parameter on humans [zeta]",
+                     #breaks = seq(0, 4*10^(-4), 0.00005),
+                     #limits = c(0, 1200),
+                     expand = c(0, 0)) +
+  # coord_cartesian(xlim=c(500, (T*12))) +
+  expand_limits(x = 0,y = 0) +
+  theme_bw()
+
+tiff(paste(setting, "_simulations_PHI.tif", sep = ""), width=12, height=9, units = "in", res = 300)
+Fig5
+dev.off()
 
 #High (60%)
 #I chose:
