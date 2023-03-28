@@ -93,10 +93,10 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 300 #number of years simulated
-seeds <- 30
+T <- 100 #number of years simulated
+seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- TRUE #disable individual output for grid search (saving time)
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -122,20 +122,21 @@ parms$parasite$ext.foi$value = 0.1 #0.1
 parms$parasite$ext.foi$duration = 0.25 #1/12 #years
 #######
 #IF HIGH ENDEM
-parms$parasite$ext.foi$value = 2 #0.1
+parms$parasite$ext.foi$value = 5 #0.1
+parms$parasite$ext.foi$duration = 2
 ######
 
-# stoch_scenarios <- filter(stoch_scenarios, DDF_strength == "Absent" &
-#                             snails == "Absent" & imm_strength == "Absent")
+# stoch_scenarios <- filter(stoch_scenarios, #DDF_strength == "Absent" &
+#                             snails == "Absent" & imm_strength == "Mild")
 zetas <- read_excel("Zetas_new.xlsx") %>%
-  filter(Endemicity == "Moderate") #& Snails == "Mild" & Immunity == "Strong" & DDF == "Strong")
+  filter(Endemicity == "Low") # & Snails == "Absent" & Immunity == "Mild") # & DDF == "Strong")
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_moderate.RData")
+load("Matched_alphas_low.RData")
 
 #Specific parameters to be changed
 # parms$snails$snail_transmission_rate = 5e-10
@@ -144,7 +145,7 @@ load("Matched_alphas_moderate.RData")
 ################
 #Set output directory to save results
 ################
-setting <- "Moderate_complete"
+setting <- "Low"
 
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
