@@ -93,60 +93,11 @@ C0=0
 ################
 #Simulation settings
 ################
-T <- 100 #number of years simulated
-seeds <- 10
-fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- FALSE #disable individual output for grid search (saving time)
-
-################
-#SETTING THE MODELLING SCENARIO: limiting mechanism
-################
-#For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
-#Combinations of modelling scenarios and stochastic seed
-
-# parms$mda$start = 0 #150
-# parms$mda$end = 0 #160
-
-stoch_scenarios <- expand.grid(list(seed = 1:seeds,
-                                    DDF_strength = c("Absent", "Mild", "Strong"),
-                                    imm_strength = c("Absent", "Mild", "Strong"),
-                                    snails = c("Absent", "Mild", "Strong")))
-
-#Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
-#Transmission parameters for tuning endemicity
-
-######
-#IF LOW ENDEM
-stoch_scenarios <- stoch_scenarios[61:270,]
-parms$parasite$ext.foi$value = 0.1 #0.1
-parms$parasite$ext.foi$duration = 0.25 #1/12 #years
-#######
-#IF HIGH ENDEM
-parms$parasite$ext.foi$value = 5 #0.1
-parms$parasite$ext.foi$duration = 2
-######
-
-# stoch_scenarios <- filter(stoch_scenarios, #DDF_strength == "Absent" &
-#                             snails == "Absent" & imm_strength == "Mild")
-zetas <- read_excel("Zetas_new.xlsx") %>%
-  filter(Endemicity == "Low") # & Snails == "Absent" & Immunity == "Mild") # & DDF == "Strong")
-stoch_scenarios <- mutate(stoch_scenarios, 
-                          zeta = rep(zetas$Zeta_grid_search, each = seeds),
-                          worms_aggr = rep(zetas$Kw, each = seeds),
-                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds))
-
-#Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
-load("Matched_alphas_low.RData")
-
-#Specific parameters to be changed
-# parms$snails$snail_transmission_rate = 5e-10
-#parms$parasite$k_w = 0.1
+source("Setting_simulation_scenario.R")
 
 ################
 #Set output directory to save results
 ################
-setting <- "Low"
-
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
   ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 

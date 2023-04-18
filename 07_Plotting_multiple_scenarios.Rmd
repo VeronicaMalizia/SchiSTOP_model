@@ -1,8 +1,10 @@
 ---
 title: "Regulating mechanisms for Schistosomiasis transmission"
 author: "Veronica Malizia"
-date: '07-03-2023'
-output: html_document
+date: "07-03-2023"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -28,10 +30,10 @@ geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
 #SETTING THE SCENARIO
-seeds <- 30
+seeds <- 50
 
-setting <- "Moderate_Complete" #"Moderate_setting_k=015_Age-int"
 endem <- "Moderate"
+setting <- paste(endem, "complete", sep = "_")
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -41,7 +43,7 @@ setwd(source.dir)
 
 # Simulation setting
 
-## Moderate endemicity setting
+## Low endemicity setting
 
 ```{r parameters, echo=FALSE, results='asis'}
 library(knitr)
@@ -77,7 +79,7 @@ n_faided <- length(which(faided$faided_seed>0))
 eliminated <- res %>%
   filter(time==3600) %>%
   group_by(Immunity, Snails, DDF) %>%
-  summarise(dead_seed = length(which(eggs_prev_SAC==0))*100/seeds)
+  summarise(eliminated_seed = length(which(eggs_prev_SAC==0))*100/seeds)
 
 #Average by seed
 if(n_faided>0){
@@ -111,7 +113,7 @@ if(endem=="Low"){
   
 kable(caption = "Eliminated runs after 10 ys MDA",
       eliminated %>%
-          mutate(dead_seed = paste(dead_seed, "%", sep = " "))
+          mutate(eliminated_seed = paste(eliminated_seed, "%", sep = " "))
       )
 }
 ```
@@ -124,7 +126,8 @@ Solid lines show prevalence of infection in SAC. Dashed lines show the underlyin
 
 
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
-  geom_line(data = res, aes(y=eggs_prev_SAC*100, group = seed), colour = "grey", alpha = 0.05) +
+  geom_line(data = res, aes(y=eggs_prev_SAC*100, 
+                            group = interaction(DDF, seed)), colour = "grey", alpha = 0.05) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
   geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
   #geom_line(data = res, aes(y = eggs_prev_SAC*100, colour = DDF), alpha = 0.3) +
@@ -262,7 +265,7 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "30_40",
                                                           "40_90"))
 
-#save(age_out, file = file.path(output.dir, "Collated_time131.RData"))
+saveRDS(age_out, file = file.path(ind.output.dir, "Avg_individual_output.RDS"))
 
 #Average over seeds
 data_toplot <- age_out %>%
