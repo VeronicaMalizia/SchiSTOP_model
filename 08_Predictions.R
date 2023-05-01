@@ -9,6 +9,7 @@ library(patchwork)
 library(egg)
 library(rstudioapi)
 library(scales)
+library(plotly)
 
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
@@ -17,8 +18,8 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 50
 
-endem <- "High"
-setting <- paste(endem, "predictions", sep = "_")
+endem <- "Low"
+setting <- paste(endem, "complete", sep = "_")
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -111,7 +112,7 @@ Fig
 dev.off()
 
 ####Main figure of observed pattern
-prev_endPC <- filter(data_avg, time == parms$mda$end*12)
+#prev_endPC <- filter(data_avg, time == parms$mda$end*12)
 
 Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
   geom_line(data = res, aes(y=eggs_prev_SAC*100,
@@ -119,29 +120,32 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
                             colour = DDF), alpha = 0.01) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
   #geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
-  geom_segment(data = prev_endPC,
-               aes(x = 0, y = eggs_prev_SAC*100, xend = parms$mda$end, yend = eggs_prev_SAC*100, colour = DDF),
-               linetype = "dashed") +
+  # geom_segment(data = prev_endPC,
+  #              aes(x = 0, y = eggs_prev_SAC*100, xend = parms$mda$end, yend = eggs_prev_SAC*100, colour = DDF),
+  #              linetype = "dashed") +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
   #           size=3) +
   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
-                     breaks = seq(0, 100, 20),
-                     limits = c(0, 100),
+                     breaks = seq(0, 100, 5),
+                     limits = c(0, 20),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "\n Time [Years from last round of PC]",
-                     breaks = seq(140, 260, 20),
-                     labels = seq(-20, 100, 20),
+                     breaks = seq(140, parms$mda$end+50, 10),
+                     labels = seq(-20, 50, 10),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  coord_cartesian(xlim=c(140, 260)) +
+  coord_cartesian(xlim=c(140, parms$mda$end+50)) +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
   theme(legend.position="bottom",
         #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5),
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1.5, "lines")) 
+
+# ggsave(paste("Plots/Modeling_scenarios/", endem, ".tif", sep = ""), 
+#        width=12, height=9, units = "in", res = 300)
 
 tiff(paste("Plots/Modeling_scenarios/", endem, ".tif", sep = ""), 
      width=12, height=9, units = "in", res = 300)
@@ -150,10 +154,10 @@ dev.off()
 
 #Age-intensity profiles
 ind_data <- readRDS(file.path(source.dir, 
-                              "Output/Individual/Low_complete/Avg_individual_output.RDS"))
+                              "Output/Individual/High_complete/Avg_individual_output.RDS"))
 
 #Average over seeds
-data_toplot <- age_out %>%
+data_toplot <- ind_data %>%
   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
   group_by(age_group, Immunity, Snails, DDF) %>%
   summarise(epg_mean = mean(epg),
@@ -173,7 +177,8 @@ eggs <-
   ggplot(filter(data_toplot, DDF=="Mild"), 
          aes(x=age_group, y=epg_mean+1, group = interaction(DDF, Immunity)))+
   geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF, shape = Immunity)) +
-  geom_line(aes(colour = DDF, linetype = Immunity), size = 1) +
+  geom_line(data = filter(data_toplot, DDF=="Mild" & Immunity == "Strong"),
+            aes(colour = DDF, linetype = Immunity), linetype = "dashed", size = 1) +
   #labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid( ~ Snails, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Observed egg counts (epg) + 1 \n",
@@ -190,6 +195,6 @@ eggs <-
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-tiff(paste("Plots/Modeling_scenarios/", endem, "age-profile.tif", sep = ""), width=10, height=6, units = "in", res = 300)
+tiff(paste("Plots/Modeling_scenarios/", endem, "age-profile2.tif", sep = ""), width=10, height=6, units = "in", res = 300)
 eggs
 dev.off()
