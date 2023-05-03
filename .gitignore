@@ -51,5 +51,3 @@ vignettes/*.pdf
 /Plots/
 /Population_output/
 
-#Changing file
-Setting_simulation_scenario.R
