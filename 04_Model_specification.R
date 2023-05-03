@@ -331,24 +331,24 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                  row.names = F)
                      }
                      
-                     res <- tibble(time = 1:(12*T),
-                                   seed = rep(scen$seed, (12*T)),
-                                   zeta = rep(scen$zeta, (12*T)),
-                                   worms_aggr = rep(scen$worms_aggr, (12*T)),
-                                   tr_snails = rep(scen$tr_snails, (12*T)),
-                                   Immunity = rep(scen$imm_strength, (12*T)),
-                                   Snails = rep(scen$snails, (12*T)),
-                                   DDF= rep(scen$DDF_strength, (12*T)),
-                                   pop_size = N,
-                                   miracidiae = m_in, 
-                                   cercariae = cercariae,
-                                   true_prev = true_prev,
-                                   eggs_prev = eggs_prev,
-                                   eggs_prev_SAC = eggs_prev_SAC,
-                                   Heggs_prev = Heggs_prev,
-                                   inf_snail = inf_snail,
-                                   susc_snail = susc_snail,
-                                   exp_snail = exp_snail)
+                     res <- tibble(time = 12*T,
+                                   seed = scen$seed,
+                                   zeta = scen$zeta,
+                                   worms_aggr = scen$worms_aggr,
+                                   tr_snails = scen$tr_snails,
+                                   Immunity = scen$imm_strength,
+                                   Snails = scen$snails,
+                                   DDF= scen$DDF_strength,
+                                   pop_size = N[12*T],
+                                   #miracidiae = m_in, 
+                                   #cercariae = cercariae,
+                                   #true_prev = true_prev,
+                                   #eggs_prev = eggs_prev,
+                                   eggs_prev_SAC = eggs_prev_SAC[12*T],
+                                   Heggs_prev = Heggs_prev[12*T],
+                                   inf_snail = inf_snail[12*T])
+                                   #susc_snail = susc_snail,
+                                   #exp_snail = exp_snail)
                      #})
                    }
 

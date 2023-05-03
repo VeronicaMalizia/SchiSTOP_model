@@ -54,9 +54,12 @@ table(cohort$sex)
 
 #Load functions
 source("01_Handy_functions.R")
+age_groups <- c(0, 10, 20, 150)
+exposure_rates <- c(0.62, 1, 0.51, 0.51)
 #Checks age-exposure and contribution
-plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), xlim = c(0, 200), ylim = c(0, 1), 
-     type = 'l', xlab = "Age", ylab = "Relative exposure rate")
+plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), 
+     xlim = c(0, 200), ylim = c(0, 1), 
+     type = 's', xlab = "Age", ylab = "Relative exposure")
 abline(v = c(5, 15), col = 'red')
 #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
 lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
