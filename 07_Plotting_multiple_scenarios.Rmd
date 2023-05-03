@@ -292,11 +292,10 @@ eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
   geom_line(aes(colour = DDF)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_log10(name = "Observed egg counts (epg) + 1 \n",
+  scale_y_continuous(name = "Observed egg counts (epg) \n",
                      #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 8000), #3000 l-m 8000 high
-                     #expand = c(0, 0)
-                ) +
+                    #limits = c(0.5, 8000), #3000 l-m 8000 high
+                     expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
   theme_bw() +

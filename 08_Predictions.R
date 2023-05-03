@@ -157,7 +157,7 @@ ind_data <- readRDS(file.path(source.dir,
                               "Output/Individual/High_complete/Avg_individual_output.RDS"))
 
 #Average over seeds
-data_toplot <- ind_data %>%
+data_toplot <- age_out %>% #ind_data %>%
   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
   group_by(age_group, Immunity, Snails, DDF) %>%
   summarise(epg_mean = mean(epg),
