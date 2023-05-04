@@ -24,6 +24,7 @@ library(ggridges)
 library(patchwork)
 library(egg)
 library(rstudioapi)
+library(scales)
 
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
@@ -32,18 +33,23 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 50
 
-endem <- "Moderate"
+endem <- "High"
 setting <- paste(endem, "complete", sep = "_")
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
   #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
+
+#Load parameters
+source("02_Parameters_Smansoni.R")
+
+
 ```
 
 # Simulation setting
 
-## Low endemicity setting
+## High endemicity setting
 
 ```{r parameters, echo=FALSE, results='asis'}
 library(knitr)
@@ -126,11 +132,14 @@ Solid lines show prevalence of infection in SAC. Dashed lines show the underlyin
 
 
 Fig <- ggplot(data=data_avg, aes(x=time/12)) +
-  geom_line(data = res, aes(y=eggs_prev_SAC*100, 
-                            group = interaction(DDF, seed)), colour = "grey", alpha = 0.05) +
-  geom_line(aes(y=eggs_prev_SAC*100, colour = DDF)) +
-  geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
-  #geom_line(data = res, aes(y = eggs_prev_SAC*100, colour = DDF), alpha = 0.3) +
+  geom_line(data = res, aes(y=eggs_prev_SAC*100,
+                            group = interaction(DDF, seed),
+                            colour = DDF), alpha = 0.01) +
+  geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
+  #geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
+  # geom_segment(data = prev_endPC,
+  #              aes(x = 0, y = eggs_prev_SAC*100, xend = parms$mda$end, yend = eggs_prev_SAC*100, colour = DDF),
+  #              linetype = "dashed") +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
@@ -139,34 +148,43 @@ Fig <- ggplot(data=data_avg, aes(x=time/12)) +
                      breaks = seq(0, 100, 20),
                      limits = c(0, 100),
                      expand = c(0, 0)) +
-  scale_x_continuous(name = "\n Time [Years]",
+  scale_x_continuous(name = "\n Time [Years from last round of PC]",
+                     breaks = seq(140, parms$mda$end+50, 10),
+                     labels = seq(-20, 50, 10),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  #coord_cartesian(xlim=c(500, (T*12))) +
+  coord_cartesian(xlim=c(140, parms$mda$end+50)) +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
   theme(legend.position="bottom",
+        #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5),
         plot.margin = margin(5, 10, 0, 10, "pt"),
-        panel.spacing = unit(1, "lines")) 
+        panel.spacing = unit(1.5, "lines")) 
 
 # tiff("Plots/Modeling_scenarios/PrevalenceSAC.tif", width=10, height=9, units = "in", res = 300)
 Fig 
 # dev.off()
 ```
 
-## Zoom on MDA rounds
+<!-- ## Zoom on MDA rounds -->
 
-Solid lines show prevalence of infection in SAC. Dashed lines show the underlying prevalence of infection on snails (shedding).
+<!-- Solid lines show prevalence of infection in SAC. Dashed lines show the underlying prevalence of infection on snails (shedding). -->
 
-```{r SAC prevalence MDA, echo=FALSE}
-#tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300)
-Fig + 
-  # geom_text(data=zetas, aes(x=170, y=80, label=my_tag), 
-  #           size=3) +
-  coord_cartesian(xlim=c(140, 170)) 
-#dev.off()
+<!-- ```{r SAC prevalence MDA, echo=FALSE} -->
 
-```
+<!-- #tiff("Plots/Modeling_scenarios/PrevalenceSAC_MDA.tif", width=10, height=9, units = "in", res = 300) -->
+
+<!-- Fig +  -->
+
+<!--   # geom_text(data=zetas, aes(x=170, y=80, label=my_tag),  -->
+
+<!--   #           size=3) + -->
+
+<!--   coord_cartesian(xlim=c(140, 170))  -->
+
+<!-- #dev.off() -->
+
+<!-- ``` -->
 
 ## Prevalence of heavy intensity infections in SAC
 
@@ -182,10 +200,12 @@ Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
                      breaks = seq(0, 100, 5), #1 l - 2 m - 5 h
                      limits = c(0, 30), #2 l - 10 m - 30 h
                      expand = c(0, 0)) +
-  scale_x_continuous(name = "\n Time [Years]",
+  scale_x_continuous(name = "\n Time [Years from last round of PC]",
+                     breaks = seq(140, parms$mda$end+50, 10),
+                     labels = seq(-20, 50, 10),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  #coord_cartesian(xlim=c(500, (T*12))) +
+  coord_cartesian(xlim=c(140, parms$mda$end+50)) +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
   theme(legend.position="bottom",
@@ -197,20 +217,29 @@ Fig2
 #dev.off()
 ```
 
-## Check: ratio of miracidiae over cercariae in the environment
+<!-- ## Check: ratio of miracidiae over cercariae in the environment -->
 
-```{r mirac and cerc, echo=FALSE}
-cercVSmirac <- ggplot(data_avg, aes(x=time/12)) +
-  geom_line(aes(y=miracidiae/cercariae, colour = DDF), alpha=0.5) +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), scales = "free") +
-  scale_y_continuous(name = "Ratio miracidiae / cercariae",
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "Time [years]",
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0)
+<!-- ```{r mirac and cerc, echo=FALSE} -->
 
-cercVSmirac
-```
+<!-- cercVSmirac <- ggplot(data_avg, aes(x=time/12)) + -->
+
+<!--   geom_line(aes(y=miracidiae/cercariae, colour = DDF), alpha=0.5) + -->
+
+<!--   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), scales = "free") + -->
+
+<!--   scale_y_continuous(name = "Ratio miracidiae / cercariae", -->
+
+<!--                      expand = c(0, 0)) + -->
+
+<!--   scale_x_continuous(name = "Time [years]", -->
+
+<!--                      expand = c(0, 0)) + -->
+
+<!--   expand_limits(x = 0,y = 0) -->
+
+<!-- cercVSmirac -->
+
+<!-- ``` -->
 
 # Individual-level results
 
@@ -221,11 +250,11 @@ cercVSmirac
 ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
 
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
-                       pattern = "*.RDS", full.names = TRUE) %>% 
+                       pattern = "^Ind_out_seed", full.names = TRUE) %>% 
   lapply(readRDS) %>%              # Store all files in list
   #lapply(read_csv, show_col_types = F) %>%
   bind_rows %>%
-  filter(time == 141)
+  filter(time == 141 | time == 161)
 
 if(endem=="High" | endem=="Moderate"){
   data_all <- data_all[- which(data_all$Immunity=="Absent" & data_all$Snails=="Absent" & data_all$DDF=="Absent"),]
@@ -264,13 +293,15 @@ age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
                                                           "15_30",
                                                           "30_40",
                                                           "40_90"))
-
-saveRDS(age_out, file = file.path(ind.output.dir, "Avg_individual_output.RDS"))
+age_out$time <- factor(as.factor(age_out$time), 
+                       levels = c("141", "161"), labels = c("Pre",  "Post"))
+                              
+# saveRDS(age_out, file = file.path(ind.output.dir, "Avg_individual_output_pre&postmda.RDS"))
 
 #Average over seeds
 data_toplot <- age_out %>%
   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
-  group_by(age_group, Immunity, Snails, DDF) %>%
+  group_by(age_group, time, Immunity, Snails, DDF) %>%
   summarise(epg_mean = mean(epg),
             epg_lo = ci(epg)[1],
             epg_hi = ci(epg)[2],
@@ -287,20 +318,24 @@ data_toplot <- age_out %>%
 
 ```{r plot functions, echo=FALSE}
 #Mean intensity
-eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
-  geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF)) +
-  geom_line(aes(colour = DDF)) +
-  labs(title = paste(endem, "endemicity setting", sep = " ")) +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_continuous(name = "Observed egg counts (epg) \n",
-                     #breaks = seq(0, 10000, 200),
-                    #limits = c(0.5, 8000), #3000 l-m 8000 high
-                     expand = c(0, 0)) +
+eggs <- ggplot(filter(data_toplot, DDF=="Mild"), 
+         aes(x=age_group, y=epg_mean+1, group = interaction(DDF, Immunity)))+
+  geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF, shape = Immunity)) +
+  geom_line(data = filter(data_toplot, DDF=="Mild"),
+            aes(colour = DDF, linetype = Immunity), size = 1) +
+  #labs(title = paste(endem, "endemicity setting", sep = " ")) +
+  facet_grid(time ~ Snails, labeller = labeller(.rows = label_both, .cols = label_both), scales = "free_y") +
+  scale_y_continuous(name = "Egg counts (epg) \n",
+                #breaks = seq(0, 10000, 200),
+                #limits = c(0.5, 8000), #3000 l-m 8000 high
+                expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
+  guides(shape = "none") +
+  scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
+  scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
   theme_bw() +
-  theme(#axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-        legend.position="bottom",
+  theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
@@ -309,9 +344,9 @@ eggs <- ggplot(data_toplot, aes(x=age_group, y=epg_mean+1, group = DDF))+
 # dev.off()
 
 #Parasite establishment rate
-rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = DDF))+
+rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = interaction(DDF, time)))+
   geom_pointrange(aes(ymin=rate_lo+0.5, ymax=rate_hi+0.5, colour = DDF)) +
-  geom_line(aes(colour = DDF)) +
+  geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Parasite establishment rate + 0.5 \n",
@@ -332,16 +367,16 @@ rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = DDF))+
 # dev.off()
 
 #Worms
-worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = DDF))+
+worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = interaction(DDF, time)))+
   geom_pointrange(aes(ymin=wp_lo+0.5, ymax=wp_hi+0.5, colour = DDF)) +
-  geom_line(aes(colour = DDF)) +
+  geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_log10(name = "Worm load (pairs) + 0.5 \n",
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both),
+             scales = "free_y") +
+  scale_y_continuous(name = "Worm load (pairs) \n",
                 #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 5000), #1000 l-m #5000 high
-                #expand = c(0, 0)
-  ) +
+                #limits = c(0.5, 5000), #1000 l-m #5000 high
+                expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
@@ -355,9 +390,9 @@ worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = DDF))+
 # dev.off()
 
 #Dead worm pairs
-dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+0.5, group = DDF))+
+dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+0.5, group = interaction(DDF, time)))+
   geom_pointrange(aes(ymin=dwp_lo+0.5, ymax=dwp_hi+0.5, colour = DDF)) +
-  geom_line(aes(colour = DDF)) +
+  geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_log10(name = "Cumulated dead worm (pairs) + 0.5 \n",

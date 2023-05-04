@@ -18,7 +18,7 @@ ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 #SETTING THE SCENARIO
 seeds <- 50
 
-endem <- "Low"
+endem <- "High"
 setting <- paste(endem, "complete", sep = "_")
 
 #Set folder
@@ -157,7 +157,7 @@ ind_data <- readRDS(file.path(source.dir,
                               "Output/Individual/High_complete/Avg_individual_output.RDS"))
 
 #Average over seeds
-data_toplot <- age_out %>% #ind_data %>%
+data_toplot <- ind_data %>%
   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
   group_by(age_group, Immunity, Snails, DDF) %>%
   summarise(epg_mean = mean(epg),
@@ -177,24 +177,24 @@ eggs <-
   ggplot(filter(data_toplot, DDF=="Mild"), 
          aes(x=age_group, y=epg_mean+1, group = interaction(DDF, Immunity)))+
   geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF, shape = Immunity)) +
-  geom_line(data = filter(data_toplot, DDF=="Mild" & Immunity == "Strong"),
-            aes(colour = DDF, linetype = Immunity), linetype = "dashed", size = 1) +
+  geom_line(data = filter(data_toplot, DDF=="Mild"),
+            aes(colour = DDF, linetype = Immunity), size = 1) +
   #labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid( ~ Snails, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_log10(name = "Observed egg counts (epg) + 1 \n",
+  scale_y_continuous(name = "Observed egg counts (epg) + 1 \n",
                 #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 8000), #3000 l-m 8000 high
-                #expand = c(0, 0)
-  ) +
+                #limits = c(0.5, 8000), #3000 l-m 8000 high
+                expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
-  guides(linetype = "none") +
+  guides(shape = "none") +
   scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
+  scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
   theme_bw() +
   theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1, "lines")) 
 
-tiff(paste("Plots/Modeling_scenarios/", endem, "age-profile2.tif", sep = ""), width=10, height=6, units = "in", res = 300)
+tiff(paste("Plots/Modeling_scenarios/", endem, "age-profile3.tif", sep = ""), width=10, height=6, units = "in", res = 300)
 eggs
 dev.off()

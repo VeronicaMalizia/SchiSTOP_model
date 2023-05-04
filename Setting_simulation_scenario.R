@@ -49,9 +49,9 @@ if(endem=="High"){
 ######
 
 stoch_scenarios <- filter(stoch_scenarios, #DDF_strength != "Absent" &
-                            snails == "Mild" & imm_strength == "Strong")
+                            snails == "Strong" & imm_strength == "Strong")
 zetas <- read_excel("Zetas_new.xlsx") %>%
-  filter(Endemicity == endem & Snails == "Mild" & Immunity == "Strong") # & DDF != "Absent")
+  filter(Endemicity == endem & Snails == "Strong" & Immunity == "Strong") # & DDF != "Absent")
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),

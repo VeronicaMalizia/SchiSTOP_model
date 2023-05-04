@@ -78,7 +78,8 @@ source("02_Parameters_Smansoni.R")
 #Worms are initialized in the cohort with an artificial FOI (1 worm pair per person per month)
 cohort <- cohort %>%
   mutate(jw1 = 1, 
-         Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w))
+         Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+         complier = as.numeric(rbernoulli(nrow(cohort), 1-parms$mda$fr_excluded)))
 
 
 #Environment is initialized as empty

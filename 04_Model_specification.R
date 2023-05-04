@@ -105,6 +105,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                    sex=as.numeric(rbernoulli(births, 0.5)),
                                                    jw1 = 0,
                                                    Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+                                                   complier = as.numeric(rbernoulli(births, 1-parms$mda$fr_excluded)),
                                                    ID = c((ever_lived+1):(ever_lived+births)),
                                                    death_age = 150,
                                                    rate = 0,
@@ -164,7 +165,9 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        killed_worms3 <- 0
                        if(t %in% c(12*seq(parms$mda$start, parms$mda$end, parms$mda$frequency))){
                          target <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi)
-                         treated <- sample(target, parms$mda$coverage*length(target)) #index of individuals
+                         fr_compliers <- sum(pop$complier[target])/length(target)
+                         real_coverage <- parms$mda$coverage/fr_compliers
+                         treated <- sample(target, real_coverage*length(target)) #index of individuals
                          n_treated <- length(treated)
                          #Killing of worms in the three age baskets:
                          killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
@@ -265,7 +268,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       Heggs_prev[t] <- length(which((pop$ec[SAC]*24)>=400))/length(SAC)
                        if(scen$snails != "Absent"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
                          susc_snail[t] <- out2$S[nrow(out2)]

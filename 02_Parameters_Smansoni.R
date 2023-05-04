@@ -33,6 +33,7 @@ parms <- list(#Demography
                         end = 160, #80,
                         frequency = 1, #annual
                         coverage = 0.75,
+                        fr_excluded = 0.05, #systematic non-compliance                       
                         efficacy = 0.86), #Turner (2017)
               
               immunity = list(imm = 0), #immunity parameter
