@@ -58,7 +58,7 @@ age_groups <- c(0, 10, 20, 150)
 exposure_rates <- c(0.62, 1, 0.51, 0.51)
 #Checks age-exposure and contribution
 plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), 
-     xlim = c(0, 200), ylim = c(0, 1), 
+     xlim = c(0, 150), ylim = c(0, 1), 
      type = 's', xlab = "Age", ylab = "Relative exposure")
 abline(v = c(5, 15), col = 'red')
 #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
@@ -130,28 +130,16 @@ saveRDS(res, file = file.path(pop.output.dir,
 #then read with readRDS
 
 
-################
-#Running plotting code
-################
-##Checks when running single scenario
-# source("06_Plotting_single_scenario.R")
-# 
+
 # ################
-# #Inspecting and saving plots (if desired)
+# Inspection
 # ################
-# 
-# #Prevalence timelines
-# tiff("Plots/Modeling scenarios/IMM_mild/Prevalence_HIGHsetting.tif", width=7, height=6, units = "in", res = 300)
-# Fig1
-# dev.off()
-# 
-# #Prevalence of infected snails
-# tiff("Plots/Prevalence_snail_low.tif", width=7, height=6, units = "in", res = 300)
-# Fig2
-# dev.off()
-# 
-# Fig3
-# Fig4
-# cerc
-# mirac
-# cercVSmirac
+sims <- res %>%
+  group_by(zeta, worms_aggr, tr_snails, Immunity, Snails, DDF) %>%
+  summarise(prevSAC = mean(eggs_prev_SAC), 
+            Hprev = mean(Heggs_prev),
+            snailprev = mean(inf_snail/(susc_snail+exp_snail+inf_snail))) %>%
+  mutate(RMSE = sqrt((sum(0.3-prevSAC, 0.06-Hprev, 0.1-snailprev)^2)/3))
+
+
+

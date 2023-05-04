@@ -52,4 +52,4 @@ vignettes/*.pdf
 /Grid search/
 
 # Setting simulation file
-Setting_simulation_scenario.R
+# Setting_simulation_scenario.R

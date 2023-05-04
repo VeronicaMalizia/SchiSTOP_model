@@ -45,9 +45,9 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$parasite$k_w = scen$worms_aggr
                      parms$snails$snail_transmission_rate = scen$tr_snails
                      
-                     # sink("Sink.txt", append=TRUE)
-                     # cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
-                     # sink()
+                     sink("Sink.txt", append=TRUE)
+                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                     sink()
                      
                      #for each seed:
                      
@@ -157,25 +157,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        #Parasitology (vectorised)
                        ###########################################
                        
-                       ########### 1. CONTROL (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
-                       # If MDA applies, it is scheduled at the beginning of the month
-                       killed_worms1 <- 0
-                       killed_worms2 <- 0
-                       killed_worms3 <- 0
-                       if(t %in% c(12*seq(parms$mda$start, parms$mda$end, parms$mda$frequency))){
-                         target <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi)
-                         treated <- sample(target, parms$mda$coverage*length(target)) #index of individuals
-                         n_treated <- length(treated)
-                         #Killing of worms in the three age baskets:
-                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
-                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = parms$mda$efficacy)
-                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = parms$mda$efficacy)
-                         pop$wp1[treated] = pop$wp1[treated] - killed_worms1
-                         pop$wp2[treated] = pop$wp2[treated] - killed_worms2
-                         pop$wp3[treated] = pop$wp3[treated] - killed_worms3
-                         pop$cum_dwp[treated] = pop$cum_dwp[treated] + 
-                           killed_worms1 + killed_worms2 + killed_worms3
-                       }
+                       ########### 1. CONTROL (No for grid search)
                        
                        ########### 2. EGGS production (before updating worms)
                        #Worms' pairs (so mature at stage 4) produce eggs
@@ -261,32 +243,13 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        # sink()
                        
                        #Summary statistics
-                       tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
-                       true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
-                       eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
-                       eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+                       # eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
+                       # eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
+                       # Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
                        if(scen$snails != "Absent"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
                          susc_snail[t] <- out2$S[nrow(out2)]
                          exp_snail[t] <- out2$E[nrow(out2)]
-                       }
-                       
-                       #Save annual individual output
-                       if(write.output == TRUE){
-                         if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
-                           ind_file <- rbind(ind_file,
-                                             select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
-                                               mutate(tot_wp = wp1+wp2+wp3,
-                                                      time = t/12, #years
-                                                      seed = scen$seed,
-                                                      zeta = scen$zeta,
-                                                      worms_aggr = scen$worms_aggr,
-                                                      tr_snails = scen$tr_snails,
-                                                      Immunity = scen$imm_strength,
-                                                      Snails = scen$snails,
-                                                      DDF = scen$DDF_strength))
-                         }
                        }
                        
                        ########## 8. WORMS UPDATE (for next month)
@@ -320,16 +283,16 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
-                     if(write.output==TRUE){
-                       filename <- paste("Ind_out_seed_", scen$seed,
-                                         "_Imm=", scen$imm_strength,
-                                         "Sn=", scen$snails,
-                                         "DDF=", scen$DDF_strength, ".csv", sep="")
-                       #Write
-                       write.csv(ind_file,
-                                 file.path(ind.output.dir, filename),
-                                 row.names = F)
-                     }
+                     # if(write.output==TRUE){
+                     #   filename <- paste("Ind_out_seed_", scen$seed,
+                     #                     "_Imm=", scen$imm_strength,
+                     #                     "Sn=", scen$snails,
+                     #                     "DDF=", scen$DDF_strength, ".csv", sep="")
+                     #   #Write
+                     #   write.csv(ind_file,
+                     #             file.path(ind.output.dir, filename),
+                     #             row.names = F)
+                     # }
                      
                      res <- tibble(time = 12*T,
                                    seed = scen$seed,
@@ -340,16 +303,11 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    Snails = scen$snails,
                                    DDF= scen$DDF_strength,
                                    pop_size = N[12*T],
-                                   #miracidiae = m_in, 
-                                   #cercariae = cercariae,
-                                   #true_prev = true_prev,
-                                   #eggs_prev = eggs_prev,
-                                   eggs_prev_SAC = eggs_prev_SAC[12*T],
-                                   Heggs_prev = Heggs_prev[12*T],
-                                   inf_snail = inf_snail[12*T])
-                                   #susc_snail = susc_snail,
-                                   #exp_snail = exp_snail)
-                     #})
+                                   eggs_prev_SAC = length(which(pop$ec[SAC]>0))/length(SAC),
+                                   Heggs_prev = length(which((pop$ec*24)>=400))/nrow(pop),
+                                   inf_snail = inf_snail[12*T],
+                                   susc_snail = susc_snail[12*T],
+                                   exp_snail = exp_snail[12*T])
                    }
 
 stopCluster(cluster)
