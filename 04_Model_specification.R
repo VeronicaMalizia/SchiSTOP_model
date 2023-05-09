@@ -73,6 +73,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      eggs_prev <- c(0)
                      eggs_prev_SAC <- c(0)
                      Heggs_prev <- c(0)
+                     Heggs_prev_SAC <- c(0)
                      inf_snail <- I0
                      susc_snail <- S0
                      exp_snail <- E0
@@ -267,8 +268,9 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
                        true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
+                       Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-                       Heggs_prev[t] <- length(which((pop$ec[SAC]*24)>=400))/length(SAC)
+                       Heggs_prev_SAC[t] <- length(which((pop$ec[SAC]*24)>=400))/length(SAC)
                        if(scen$snails != "Absent"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
                          susc_snail[t] <- out2$S[nrow(out2)]
@@ -348,6 +350,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    eggs_prev = eggs_prev,
                                    eggs_prev_SAC = eggs_prev_SAC,
                                    Heggs_prev = Heggs_prev,
+                                   Heggs_prev_SAC = Heggs_prev_SAC,
                                    inf_snail = inf_snail,
                                    susc_snail = susc_snail,
                                    exp_snail = exp_snail)

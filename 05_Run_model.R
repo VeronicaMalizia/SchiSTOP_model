@@ -32,24 +32,18 @@ source.dir <- dirname(getActiveDocumentContext()$path)
   #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 #Load age distribution at equilibrium and death rates
-load("Equilibrium_age_distribution.RData") #the object is called "to.save"
+load("Equilibrium_age_distribution.RData") #the object contains the age distribution at equilibrium and the initial cohort generated from that
 #death_rates <- read.csv("death_rates_Uganda_2019.csv")
 prob_death <- read.csv("prob_death_Uganda_2019.csv")
 
 #0=male, 1=female
-cohort <- c()
-for(i in 1:nrow(to.save)){
-  tmp <- tibble(age = rep(to.save$age[i], round(to.save$n[i])))
-  cohort <- rbind(cohort, tmp) 
-}
-cohort <- cohort %>%
-  mutate(sex = as.numeric(rbernoulli(nrow(cohort), 0.5)))
 #Checks
-hist(cohort$age, main = "Initial age distribution", xlab = "Age (ys)")
+hist(cohort$age, breaks = c(0, prob_death$Age_hi[-c(1, nrow(prob_death))]+1),
+     main = "Initial age distribution", xlab = "Age (ys)")
 table(cohort$sex)
 
 ################
-#Loadings
+#Loading
 ################
 
 #Load functions
