@@ -304,10 +304,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    DDF= scen$DDF_strength,
                                    pop_size = N[12*T],
                                    eggs_prev_SAC = length(which(pop$ec[SAC]>0))/length(SAC),
-                                   Heggs_prev = length(which((pop$ec*24)>=400))/nrow(pop),
-                                   inf_snail = inf_snail[12*T],
-                                   susc_snail = susc_snail[12*T],
-                                   exp_snail = exp_snail[12*T])
+                                   Heggs_prev = length(which((pop$ec[SAC]*24)>=400))/length(SAC),
+                                   inf_snail = inf_snail[length(inf_snail)],
+                                   susc_snail = susc_snail[length(susc_snail)],
+                                   exp_snail = exp_snail[length(exp_snail)])
                    }
 
 stopCluster(cluster)

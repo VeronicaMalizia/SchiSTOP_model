@@ -141,5 +141,5 @@ sims <- res %>%
             snailprev = mean(inf_snail/(susc_snail+exp_snail+inf_snail))) %>%
   mutate(RMSE = sqrt((sum(0.3-prevSAC, 0.06-Hprev, 0.1-snailprev)^2)/3))
 
-
-
+ggplot(sims, aes(x=zeta, y=worms_aggr))+
+  geom_point(aes(color = RMSE))
