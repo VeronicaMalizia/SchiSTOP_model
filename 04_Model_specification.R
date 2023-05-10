@@ -25,7 +25,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                    .errorhandling = "pass", #remove or pass
                    .verbose = TRUE,
                    #.combine = bind_rows, #default is a list
-                   .packages = c("tidyverse", "deSolve")) %dopar% {
+                   .packages = c("tidyverse", "deSolve", "splitstackshape")) %dopar% {
                      
                      #set scenario-specific parameters
                      scen <- stoch_scenarios[k, ]
@@ -45,9 +45,9 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$parasite$k_w = scen$worms_aggr
                      parms$snails$snail_transmission_rate = scen$tr_snails
                      
-                     # sink("Sink.txt", append=TRUE)
-                     # cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
-                     # sink()
+                     sink("Sink.txt", append=TRUE)
+                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                     sink()
                      
                      #for each seed:
                      
@@ -56,7 +56,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      #Initialize population
                      pop <- cbind(cohort, #%>%
                                   ID = c(1:nrow(cohort)),
-                                  death_age = 150,
+                                  death_age = 100,
+                                  age_group = as.numeric(cut(cohort$age, c(-1, prob_death$Age_hi))),
                                   rate = 0,
                                   wp1 = 0,
                                   wp2 = 0,
@@ -108,7 +109,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                    Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
                                                    complier = as.numeric(rbernoulli(births, 1-parms$mda$fr_excluded)),
                                                    ID = c((ever_lived+1):(ever_lived+births)),
-                                                   death_age = 150,
+                                                   death_age = 100,
+                                                   age_group = 1,
                                                    rate = 0,
                                                    wp1 = 0,
                                                    wp2 = 0,
@@ -122,21 +124,21 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        ########## DEATHS
                        if(t %in% seq(1, (T*12), 12)){ #Januaries
                          ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
+                         pop <- mutate(pop, age_group = ag)
                          
-                         for(i in 1:nrow(pop)){
-                           # if(pop$sex[i]==0){
-                           #   if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
-                           #     death_month <- runif(1, 1, 12)
-                           #     pop$death_age[i] <- pop$age[i] + death_month/12
-                           #   }
-                           # }
-                           #if(pop$sex[i]==1){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
-                             death_month <- runif(1, 1, 12)
-                             pop$death_age[i] = pop$age[i] + death_month/12
-                           }
-                           #}
-                         }
+                         deaths <- as.tibble(table(ag)) %>%
+                           rename(Ag = ag) %>%
+                           mutate(n.deaths = round(prob_death[Ag, "Both_sexes"]*n)) %>%
+                           filter(n.deaths > 0)
+                         names(deaths$n.deaths) <- deaths$Ag
+                         
+                         # if(length(which(deaths$n.alive==0))>0) #we already remove the age group where nobody is left (if any)
+                         #   pop <- filter(pop, age_group != deaths$Ag[deaths$n.alive==0])
+                         
+                         deads <- stratified(pop[pop$age_group %in% deaths$Ag, ], "age_group", 
+                                             deaths$n.deaths, keep.rownames = T) %>%
+                           mutate(death_age = age + runif(n(), 1, 12)/12) #starts from 1/12, but it reaches 12/12, that is the following January
+                         pop[deads$rn,"death_age"] <- deads$death_age #we assign death age within that year
                        }
                        
                        pop <- filter(pop, age < death_age)
@@ -144,8 +146,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        ########## MIGRATION
                        #For now we do not account for age-specific emigration
                        lambda <- round(parms$demography$emig_rate*(nrow(pop)/1000)/12)
-                       emig_age <- which(pop$age>5&pop$age<55)
-                       emigrated <- sample(emig_age, lambda)
+                       emigrated <- sample(which(pop$age>5&pop$age<55), lambda)
                        if(length(emigrated)>0)
                          pop <- pop[-emigrated,]
                        
@@ -281,7 +282,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        if(write.output == TRUE){
                          if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
                            ind_file <- rbind(ind_file,
-                                             select(pop, ID, age, sex, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
+                                             select(pop, ID, age, age_group, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
                                                mutate(tot_wp = wp1+wp2+wp3,
                                                       time = t/12, #years
                                                       seed = scen$seed,

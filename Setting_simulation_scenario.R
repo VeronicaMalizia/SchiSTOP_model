@@ -15,9 +15,10 @@ parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  end = 160, #80,
                  frequency = 1, #annual
                  coverage = 0.75,
+                 fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
 
-endem <- "High"
+endem <- "Moderate"
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
                                     imm_strength = c("Absent", "Mild", "Strong"),
@@ -64,5 +65,5 @@ load(paste("Matched_alphas_", endem, ".RData", sep = ""))
 # parms$snails$snail_transmission_rate = 5e-10
 #parms$parasite$k_w = 0.1
 
-setting <- paste(endem, "watercontacts", sep = "_")
+setting <- paste(endem, "trial_newdemogr", sep = "_")
 

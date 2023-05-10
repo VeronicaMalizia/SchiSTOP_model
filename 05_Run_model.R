@@ -163,3 +163,24 @@ saveRDS(res, file = file.path(pop.output.dir,
 # cerc
 # mirac
 # cercVSmirac
+
+#cHECK DEMOGRAPHY
+data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
+                       pattern = "^Ind_out_seed", full.names = TRUE) %>% 
+  lapply(readRDS) %>%              # Store all files in list
+  #lapply(read_csv, show_col_types = F) %>%
+  bind_rows %>%
+  filter(time == 191)
+age_out <- data_all %>%
+  group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+  summarise(pop = n())
+#Average over seeds
+age_out <- age_out %>%
+  group_by(time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+  summarise(pop = mean(pop))
+
+ggplot(age_out, aes(x = as.factor(age_group), y = pop)) +
+  geom_col(aes(colour=DDF, fill=DDF), alpha = 0.7, position = "dodge") +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both))
+            
+            
