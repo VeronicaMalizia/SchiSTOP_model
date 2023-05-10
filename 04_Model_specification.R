@@ -25,7 +25,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                    .errorhandling = "pass", #remove or pass
                    .verbose = TRUE,
                    #.combine = bind_rows, #default is a list
-                   .packages = c("tidyverse", "deSolve")) %dopar% {
+                   .packages = c("tidyverse", "deSolve", "splitstackshape")) %dopar% {
                      
                      #set scenario-specific parameters
                      scen <- stoch_scenarios[k, ]
@@ -56,7 +56,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      #Initialize population
                      pop <- cbind(cohort, #%>%
                                   ID = c(1:nrow(cohort)),
-                                  death_age = 150,
+                                  death_age = 100,
+                                  age_group = as.numeric(cut(cohort$age, c(-1, prob_death$Age_hi))),
                                   rate = 0,
                                   wp1 = 0,
                                   wp2 = 0,
@@ -106,7 +107,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                    jw1 = 0,
                                                    Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
                                                    ID = c((ever_lived+1):(ever_lived+births)),
-                                                   death_age = 150,
+                                                   death_age = 100,
+                                                   age_group = 1,
                                                    rate = 0,
                                                    wp1 = 0,
                                                    wp2 = 0,
@@ -119,22 +121,22 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        ########## DEATHS
                        if(t %in% seq(1, (T*12), 12)){ #Januaries
-                         ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #age groups
+                         ag <- as.numeric(cut(pop$age, c(-1, prob_death$Age_hi))) #update age groups
+                         pop <- mutate(pop, age_group = ag)
                          
-                         for(i in 1:nrow(pop)){
-                           # if(pop$sex[i]==0){
-                           #   if(rbernoulli(1, p=prob_death[ag[i], "Male"])){
-                           #     death_month <- runif(1, 1, 12)
-                           #     pop$death_age[i] <- pop$age[i] + death_month/12
-                           #   }
-                           # }
-                           #if(pop$sex[i]==1){
-                           if(rbernoulli(1, p=prob_death[ag[i], "Both_sexes"])){
-                             death_month <- runif(1, 1, 12)
-                             pop$death_age[i] = pop$age[i] + death_month/12
-                           }
-                           #}
-                         }
+                         deaths <- as.tibble(table(ag)) %>%
+                           rename(Ag = ag) %>%
+                           mutate(n.deaths = round(prob_death[Ag, "Both_sexes"]*n)) %>%
+                           filter(n.deaths > 0)
+                         names(deaths$n.deaths) <- deaths$Ag
+                         
+                         # if(length(which(deaths$n.alive==0))>0) #we already remove the age group where nobody is left (if any)
+                         #   pop <- filter(pop, age_group != deaths$Ag[deaths$n.alive==0])
+                         
+                         deads <- stratified(pop[pop$age_group %in% deaths$Ag, ], "age_group", 
+                                             deaths$n.deaths, keep.rownames = T) %>%
+                           mutate(death_age = age + runif(n(), 1, 12)/12) #starts from 1/12, but it reaches 12/12, that is the following January
+                         pop[deads$rn,"death_age"] <- deads$death_age #we assign death age within that year
                        }
                        
                        pop <- filter(pop, age < death_age)

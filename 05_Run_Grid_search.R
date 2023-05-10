@@ -37,13 +37,6 @@ load("Equilibrium_age_distribution.RData") #the object is called "to.save"
 prob_death <- read.csv("prob_death_Uganda_2019.csv")
 
 #0=male, 1=female
-cohort <- c()
-for(i in 1:nrow(to.save)){
-  tmp <- tibble(age = rep(to.save$age[i], round(to.save$n[i])))
-  cohort <- rbind(cohort, tmp) 
-}
-cohort <- cohort %>%
-  mutate(sex = as.numeric(rbernoulli(nrow(cohort), 0.5)))
 #Checks
 hist(cohort$age, main = "Initial age distribution", xlab = "Age (ys)")
 table(cohort$sex)
@@ -55,10 +48,10 @@ table(cohort$sex)
 #Load functions
 source("01_Handy_functions.R")
 age_groups <- c(0, 10, 20, 150)
-exposure_rates <- c(0.62, 1, 0.51, 0.51)
+exposure_rates <- c(0.62, 1, 0.51, 0.51) #Relative age-specific exposure (minutes/person)
 #Checks age-exposure and contribution
 plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), 
-     xlim = c(0, 150), ylim = c(0, 1), 
+     xlim = c(0, 100), ylim = c(0, 1), 
      type = 's', xlab = "Age", ylab = "Relative exposure")
 abline(v = c(5, 15), col = 'red')
 #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
@@ -118,7 +111,7 @@ if(!file.exists(pop.output.dir)){
   dir.create(pop.output.dir)
 }
 
-#Check indexes without errors (the snail system goes to zero)
+#Check indexes without errors (for ex. when the snail system goes to zero)
 index <- which(sapply(results, length)>2)
 results <- results[index]
 
