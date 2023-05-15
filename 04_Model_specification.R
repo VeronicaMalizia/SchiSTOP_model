@@ -14,7 +14,6 @@ library(foreach)
 library(doParallel)
 
 writeLines(c(""), "Sink.txt") #initiate log file
-writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(parallel::detectCores(logical = TRUE), nrow(stoch_scenarios)))
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
@@ -70,21 +69,20 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      ever_lived <- N
                      SAC <- which(pop$age >= 5 & pop$age <= 15)
                      
-                     true_prev <- c(0)
-                     eggs_prev <- c(0)
+                     #true_prev <- c(0)
+                     #eggs_prev <- c(0)
                      eggs_prev_SAC <- c(0)
-                     Heggs_prev <- c(0)
-                     inf_snail <- I0
-                     susc_snail <- S0
-                     exp_snail <- E0
+                     Heggs_prev_SAC <- c(0)
+                     inf_snail <- init$snails$I0
+                     susc_snail <- init$snails$S0
+                     exp_snail <- init$snails$E0
                      
                      #Create initial cloud
                      #Initialize quantities
-                     m_in <- sum(contributions0)
+                     m_in <- sum(init$environment$contributions0)
                      ## Start values
-                     newstart <- c(S0, E0, I0, C0) #Initializing snails
+                     newstart <- c(init$snails$S0, init$snails$E0, init$snails$I0, init$snails$C0) #Initializing snails
                      cercariae <- 0 #to eventually plot the cercariae (cloud)
-                     ind_file <- c()
                      for(t in 2:(12*T)){
                        
                        ###########################################
@@ -129,9 +127,6 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                            mutate(n.deaths = round(prob_death[Ag, "Both_sexes"]*n)) %>%
                            filter(n.deaths > 0)
                          names(deaths$n.deaths) <- deaths$Ag
-                         
-                         # if(length(which(deaths$n.alive==0))>0) #we already remove the age group where nobody is left (if any)
-                         #   pop <- filter(pop, age_group != deaths$Ag[deaths$n.alive==0])
                          
                          deads <- stratified(pop[pop$age_group %in% deaths$Ag, ], "age_group", 
                                              deaths$n.deaths, keep.rownames = T) %>%
@@ -237,7 +232,6 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        #Each individual assumes new worms (FOIh) and immunity applies
                        #One exposure rate per individual (based on age and ind. sus.)
                        pop$rate = FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
-                       #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                        
                        ########## 7. SAVE OUTPUT
                        # sink("Find_bug.txt", append=TRUE)
@@ -285,17 +279,6 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop$cum_dwp = pop$cum_dwp + aging_3
                      }
                      
-                     # if(write.output==TRUE){
-                     #   filename <- paste("Ind_out_seed_", scen$seed,
-                     #                     "_Imm=", scen$imm_strength,
-                     #                     "Sn=", scen$snails,
-                     #                     "DDF=", scen$DDF_strength, ".csv", sep="")
-                     #   #Write
-                     #   write.csv(ind_file,
-                     #             file.path(ind.output.dir, filename),
-                     #             row.names = F)
-                     # }
-                     
                      res <- tibble(time = 12*T,
                                    seed = scen$seed,
                                    zeta = scen$zeta,
@@ -306,7 +289,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    DDF= scen$DDF_strength,
                                    pop_size = N[12*T],
                                    eggs_prev_SAC = length(which(pop$ec[SAC]>0))/length(SAC),
-                                   Heggs_prev = length(which((pop$ec[SAC]*24)>=400))/length(SAC),
+                                   Heggs_prev_SAC = length(which((pop$ec[SAC]*24)>=400))/length(SAC),
                                    inf_snail = inf_snail[length(inf_snail)],
                                    susc_snail = susc_snail[length(susc_snail)],
                                    exp_snail = exp_snail[length(exp_snail)])
