@@ -1,7 +1,7 @@
-T <- 200 #number of years simulated
+T <- 100 #number of years simulated
 seeds <- 10
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- TRUE #disable individual output for grid search (saving time)
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -11,14 +11,14 @@ write.output <- TRUE #disable individual output for grid search (saving time)
 
 parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  age.hi = 15,
-                 start = 150, #70,
-                 end = 160, #80,
+                 start = 0, #150,
+                 end = 0, #160,
                  frequency = 1, #annual
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
 
-endem <- "Moderate"
+endem <- "High"
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
                                     imm_strength = c("Absent", "Mild", "Strong"),
@@ -49,10 +49,10 @@ if(endem=="High"){
 }
 ######
 
-stoch_scenarios <- filter(stoch_scenarios, #DDF_strength != "Absent" &
-                            snails == "Strong" & imm_strength == "Strong")
+stoch_scenarios <- filter(stoch_scenarios, DDF_strength != "Absent" &
+                            snails == "Strong" & imm_strength == "Mild")
 zetas <- read_excel("Zetas_new.xlsx") %>%
-  filter(Endemicity == endem & Snails == "Strong" & Immunity == "Strong") # & DDF != "Absent")
+  filter(Endemicity == endem & Snails == "Strong" & Immunity == "Mild" & DDF != "Absent")
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
@@ -65,5 +65,5 @@ load(paste("Matched_alphas_", endem, ".RData", sep = ""))
 # parms$snails$snail_transmission_rate = 5e-10
 #parms$parasite$k_w = 0.1
 
-setting <- paste(endem, "trial_newdemogr", sep = "_")
+setting <- paste(endem, "retuning", sep = "_")
 

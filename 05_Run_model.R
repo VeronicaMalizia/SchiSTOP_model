@@ -52,7 +52,7 @@ source("01_Handy_functions.R")
 age_groups <- c(0, 10, 20, 150)
 exposure_rates <- c(0.62, 1, 0.51, 0.51) #Relative Age-specific exposure (minutes/person)
 #(frequency)
-exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure (activity/person)
+#exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure (activity/person)
 
 #Checks age-exposure and contribution
 plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), 
