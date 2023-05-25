@@ -20,7 +20,7 @@ parms$mda$end <- 0
 stoch_scenarios <- expand.grid(list(#seed = 1:seeds,
                                     DDF_strength = c("Strong"), #Multiple combinations are possible
                                     imm_strength = c("Strong"), #Multiple combinations are possible
-                                    snails = c("Mild"))) #Multiple combinations are possible
+                                    snails = c("Absent"))) #Multiple combinations are possible
                                     ## The three below are the varying parameters
                                     # Need to assign values along the calibration
                                     # worms_aggr = 0.15,

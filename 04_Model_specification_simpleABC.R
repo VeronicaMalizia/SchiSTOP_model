@@ -6,45 +6,17 @@
 #This script contains the model specification simplified to run a simple ABC method for calibration
 #
 #############################
-
- #set scenario-specific parameters
- scen <- stoch_scenarios
- #parms$parasite$zeta = scen$zeta #overall exposure rate.  
- parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
-                                scen$imm_strength== "Mild" ~ 0.0005,
-                                scen$imm_strength== "Strong" ~ 0.005) #immunity slope parameter
- parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No module
-                                            scen$snails == "Mild" ~ 20000,
-                                            scen$snails == "Strong" ~ 10000)
- parms$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
-                                       scen$DDF_strength== "Mild" ~ alpha_mild,
-                                       scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
- parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
-                                   scen$DDF_strength== "Mild" ~ 0.0005,
-                                   scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
- # parms$parasite$k_w = scen$worms_aggr
- # parms$snails$snail_transmission_rate = scen$tr_snails
  
- #for each seed:
+ #First step, for each seed:
  
  #profvis({   
  #Time step events, for each individual
- #Initialize population
- pop <- cbind(cohort, #%>%
-              ID = c(1:nrow(cohort)),
-              death_age = 100,
-              age_group = as.numeric(cut(cohort$age, c(-1, prob_death$Age_hi))),
-              rate = 0,
-              wp1 = 0,
-              wp2 = 0,
-              wp3 = 0,
-              jw2 = 0,
-              jw3 = 0,
-              cum_dwp = 0,
-              ec = 0) #female worms
+ #Step 1
+ pop <- init$humans$pop %>%
+   mutate(Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w))
  N <- nrow(pop)
  ever_lived <- N
- SAC <- which(pop$age >= 5 & pop$age <= 15)
+ SAC <- init$humans$SAC
  
  #true_prev <- c(0)
  #eggs_prev <- c(0)
@@ -55,10 +27,9 @@
  exp_snail <- init$snails$E0
  
  #Create initial cloud
- #Initialize quantities
  m_in <- sum(init$environment$contributions0)
  ## Start values
- newstart <- c(init$snails$S0, init$snails$E0, init$snails$I0, init$snails$C0) #Initializing snails
+ newstart <- c(init$snails$S0, init$snails$E0, init$snails$I0, init$snails$C0) 
  cercariae <- 0 #to eventually plot the cercariae (cloud)
  for(t in 2:(12*T)){
    
@@ -76,23 +47,25 @@
    births <- round(parms$demography$birth_rate*(nrow(pop)/1000)/12)
    #new born
    
-   pop <- bind_rows(pop, 
-                    data.frame(age=0,
-                               sex=as.numeric(rbernoulli(births, 0.5)),
-                               jw1 = 0,
-                               Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
-                               ID = c((ever_lived+1):(ever_lived+births)),
-                               death_age = 100,
-                               age_group = 1,
-                               rate = 0,
-                               wp1 = 0,
-                               wp2 = 0,
-                               wp3 = 0,
-                               jw2 = 0,
-                               jw3 = 0,
-                               cum_dwp = 0,
-                               ec = 0))
-   ever_lived <- ever_lived+births
+   if(births>0){
+     pop <- bind_rows(pop, 
+                      data.frame(age=0,
+                                 sex=as.numeric(rbernoulli(births, 0.5)),
+                                 jw1 = 0,
+                                 Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+                                 ID = c((ever_lived+1):(ever_lived+births)),
+                                 death_age = 100,
+                                 age_group = 1,
+                                 rate = 0,
+                                 wp1 = 0,
+                                 wp2 = 0,
+                                 wp3 = 0,
+                                 jw2 = 0,
+                                 jw3 = 0,
+                                 cum_dwp = 0,
+                                 ec = 0))
+     ever_lived <- ever_lived+births
+   }
    
    ########## DEATHS
    if(t %in% seq(1, (T*12), 12)){ #Januaries
@@ -200,6 +173,7 @@
                    out2$E[nrow(out2)],
                    out2$I[nrow(out2)],
                    out2$C[nrow(out2)])
+     ### SMT to replace NAs with zeros
      
      #Cercarial production 
      cercariae[t] <- out2$C[nrow(out2)]
