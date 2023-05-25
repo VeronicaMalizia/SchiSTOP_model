@@ -132,7 +132,12 @@ sims <- res %>%
   summarise(prevSAC = mean(eggs_prev_SAC), 
             Hprev = mean(Heggs_prev),
             snailprev = mean(inf_snail/(susc_snail+exp_snail+inf_snail))) %>%
-  mutate(RMSE = sqrt((sum(0.3-prevSAC, 0.06-Hprev, 0.1-snailprev)^2)/3))
+  mutate(RMSE = sqrt((sum(0.6-prevSAC, 0.2-Hprev, 0.06-snailprev)^2)/3))
+
+sims <- sims %>%
+  group_by(Immunity, Snails, DDF) %>%
+  slice_min(order_by = RMSE)
 
 ggplot(sims, aes(x=zeta, y=worms_aggr))+
-  geom_point(aes(color = RMSE))
+  geom_point(aes(color = RMSE)) + 
+  facet_grid(~ DDF)
