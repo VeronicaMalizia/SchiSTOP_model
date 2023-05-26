@@ -31,10 +31,9 @@ library(deSolve)
 source.dir <- dirname(getActiveDocumentContext()$path)
 #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
-#Load age distribution at equilibrium and death rates
-load("Equilibrium_age_distribution.RData") #the object is called "to.save"
-#death_rates <- read.csv("death_rates_Uganda_2019.csv")
-prob_death <- read.csv("prob_death_Uganda_2019.csv")
+
+#Load initial population and conditions
+source("01.1_Initial_conditions.R") #the object is called "to.save"
 
 #0=male, 1=female
 #Checks
@@ -60,31 +59,6 @@ lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
 ##Load parameters
 source("02_Parameters_Smansoni.R")
 
-################
-#Initializing
-################
-
-#Worms are initialized in the cohort with an artificial FOI (1 worm pair per person per month)
-cohort <- cohort %>%
-  mutate(jw1 = 1, 
-         Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w))
-
-
-#Environment is initialized as empty
-eggs0 <- 0
-contributions0 <- 0
-
-#Initial cumulative exposure
-cum_exp <- sum(Age_profile_exp(cohort$age)$y * cohort$Ind_sus) 
-#Index of SAC in the cohort
-SAC <- which(cohort$age >= 5 & cohort$age <= 15)
-
-#Snail population is initialized
-snail.pop=10000
-E0=0
-I0=0
-S0=snail.pop - sum(E0, I0)
-C0=0
 
 ################
 #Preparing simulation setting
@@ -130,9 +104,9 @@ saveRDS(res, file = file.path(pop.output.dir,
 sims <- res %>%
   group_by(zeta, worms_aggr, tr_snails, Immunity, Snails, DDF) %>%
   summarise(prevSAC = mean(eggs_prev_SAC), 
-            Hprev = mean(Heggs_prev),
+            Hprev = mean(Heggs_prev_SAC),
             snailprev = mean(inf_snail/(susc_snail+exp_snail+inf_snail))) %>%
-  mutate(RMSE = sqrt((sum(0.6-prevSAC, 0.2-Hprev, 0.06-snailprev)^2)/3))
+  mutate(RMSE = sqrt((sum(0.5*(0.6-prevSAC), 0.2*(0.2-Hprev), 0.3*(0.06-snailprev))^2)/3))
 
 sims <- sims %>%
   group_by(Immunity, Snails, DDF) %>%
