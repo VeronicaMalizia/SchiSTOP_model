@@ -37,8 +37,9 @@ setwd(source.dir)
 #theta = c(zeta, worms_aggr, tr_snails)
 
 theta_prior = list(c("normal", -5, 0.5), # zeta (> 0) #-7.5
-                   c("unif", 0, 0.5)) # worms_aggr (in (0,1)) or beta(che può essere skewed)
+                   c("exponential", 1/0.15)) # worms_aggr (in (0,1)) or beta(che può essere skewed)
                    #c("lognormal", -23, 1)) # tr_snails (> 0, very small) 
+#kw exponential 
 theta_prior
 
 #######################
@@ -104,20 +105,26 @@ schisto_model()
 ## High endemicity: 60% prevalence in SAC, 20% HI prevalence in SAC, 6% snail prevalence
 
 high_stat_obs = c(0.6, 0.2) #c(0.6, 0.2, 0.06)
+#Weigths for summary statistics
+weigths = c(0.7, 0.30)
 
 ###### Specific parameters #######
 ## to perform the Beaumont et al. (2009)'s method:
-tolerance=3 #c(10, 0.5)
+tolerance=100 #c(10, 0.5)
 
 
 ABC_Delmoral<-ABC_sequential(method="Delmoral", model=schisto_model, prior=theta_prior, 
                              #n_cluster = parallel::detectCores(logical = FALSE),
-                             #prior_test = "X3 < X1", #inside_prior = FALSE,
+                             dist_weights = weigths,
                              nb_simul=10, use_seed=TRUE, verbose = FALSE, progress_bar = TRUE,
                              summary_stat_target=high_stat_obs, tolerance_target=tolerance)
-ABC_Beaumont
+ABC_Delmoral
 
 
+
+
+sd(ABC_Delmoral$stats[,1])
+sd(ABC_Delmoral$stats[,2])
 
 method="Beaumont"
 model=schisto_model 
