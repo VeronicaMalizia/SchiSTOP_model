@@ -13,7 +13,7 @@
  #Time step events, for each individual
  #Step 1
  pop <- init$humans$pop %>%
-   mutate(Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w))
+   mutate(Ind_sus = rgamma(nrow(cohort), shape = theta[2], scale = 1/theta[2]))
  N <- nrow(pop)
  ever_lived <- N
  SAC <- init$humans$SAC
@@ -25,6 +25,7 @@
  inf_snail <- init$snails$I0
  susc_snail <- init$snails$S0
  exp_snail <- init$snails$E0
+ snail_prev <- inf_snail/(susc_snail+exp_snail+inf_snail) 
  
  #Create initial cloud
  m_in <- sum(init$environment$contributions0)
@@ -52,7 +53,7 @@
                       data.frame(age=0,
                                  sex=as.numeric(rbernoulli(births, 0.5)),
                                  jw1 = 0,
-                                 Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+                                 Ind_sus = rgamma(births, shape = theta[2], scale = 1/theta[2]),
                                  ID = c((ever_lived+1):(ever_lived+births)),
                                  death_age = 100,
                                  age_group = 1,
@@ -149,7 +150,7 @@
                      k = parms$snails$carrying.capacity, 
                      v = parms$snails$mortality.rate,
                      mir = mirac.input, 
-                     b = parms$snails$snail_transmission_rate,
+                     b = theta[3],
                      v2 = parms$snails$mortality.rate.infection, 
                      tau = parms$snails$infection.rate,
                      lambda = parms$snails$cerc.prod.rate, 
@@ -182,7 +183,7 @@
    ########## 6. EXPOSURE OF HUMANS 
    #Each individual assumes new worms (FOIh) and immunity applies
    #One exposure rate per individual (based on age and ind. sus.)
-   pop$rate = FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
+   pop$rate = FOIh(l=cercariae[t], exp(theta[1]), parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
    
    ########## 7. SAVE OUTPUT
    # sink("Find_bug.txt", append=TRUE)
@@ -191,12 +192,13 @@
    
    #Summary statistics
    # eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
-   # eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
-   # Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
+   eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
+   Heggs_prev_SAC[t] <- length(which((pop$ec[SAC]*24)>=400))/length(SAC)
    if(scen$snails != "Absent"){
-     inf_snail[t] <- out2$I[nrow(out2)] 
-     susc_snail[t] <- out2$S[nrow(out2)]
-     exp_snail[t] <- out2$E[nrow(out2)]
+     inf_snail <- out2$I[nrow(out2)] 
+     susc_snail <- out2$S[nrow(out2)]
+     exp_snail <- out2$E[nrow(out2)]
+     snail_prev[t] <- inf_snail/(susc_snail+exp_snail+inf_snail) 
    }
    
    ########## 8. WORMS UPDATE (for next month)
@@ -230,9 +232,9 @@
    pop$cum_dwp = pop$cum_dwp + aging_3
  }
  
- res <- c(length(which(pop$ec[SAC]>0))/length(SAC), #any prev in SAC
-          length(which((pop$ec[SAC]*24)>=400))/length(SAC), #high intensity prev in SAC
-          inf_snail[12*T]/(susc_snail[12*T]+exp_snail[12*T]+inf_snail[12*T])) #infection prevalence in snails
+ res <- c(mean(eggs_prev_SAC[720:1200]), #any prev in SAC
+          mean(Heggs_prev_SAC[720:1200]), #high intensity prev in SAC
+          mean(snail_prev[720:1200])) #infection prevalence in snails
  
    
 
