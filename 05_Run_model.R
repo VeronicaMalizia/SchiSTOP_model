@@ -31,10 +31,13 @@ library(beepr)
 source.dir <- dirname(getActiveDocumentContext()$path)
   #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
-#Load age distribution at equilibrium and death rates
-load("Equilibrium_age_distribution.RData") #the object contains the age distribution at equilibrium and the initial cohort generated from that
-#death_rates <- read.csv("death_rates_Uganda_2019.csv")
-prob_death <- read.csv("prob_death_Uganda_2019.csv")
+
+################
+#Loadings
+################
+
+#Load initial population and conditions
+source("01.1_Initial_conditions.R")
 
 #0=male, 1=female
 #Checks
@@ -42,81 +45,50 @@ hist(cohort$age, breaks = c(0, prob_death$Age_hi[-c(1, nrow(prob_death))]+1),
      main = "Initial age distribution", xlab = "Age (ys)")
 table(cohort$sex)
 
-################
-#Loading
-################
-
 #Load functions
 source("01_Handy_functions.R")
-#Water contact data (duration)
-age_groups <- c(0, 10, 20, 150)
-exposure_rates <- c(0.62, 1, 0.51, 0.51) #Relative Age-specific exposure (minutes/person)
+#If you want to use Water contact data (duration):
+# age_groups <- c(0, 10, 20, 150)
+# exposure_rates <- c(0.62, 1, 0.51, 0.51) #Relative Age-specific exposure (minutes/person)
 #(frequency)
 #exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure (activity/person)
 
-#Checks age-exposure and contribution
-plot(approxfun(x=age_groups, y=exposure_rates, method = "constant"), 
+##Load parameters
+source("02_Parameters_Smansoni.R")
+
+#Check age-exposure(s) and contribution
+plot(Age_profile_exp(parms$exposure$ICL_derived$ages, 
+                     parms$exposure$ICL_derived$exp, x, 
+                     method = parms$exposure$ICL_derived$method), 
      xlim = c(0, 100), ylim = c(0, 1), 
      type = 's', xlab = "Age", ylab = "Relative exposure")
+lines(Age_profile_exp(parms$exposure$Sow_derived$ages, 
+                      parms$exposure$Sow_derived$exp, x, 
+                      method = parms$exposure$Sow_derived$method), type = 'l',col = "dark green")
 abline(v = c(5, 15), col = 'red')
 #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
 lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
-
-##Load parameters
-source("02_Parameters_Smansoni.R")
 
 ################
 #Initializing
 ################
 
 #Worms are initialized in the cohort with an artificial FOI (1 worm pair per person per month)
-cohort <- cohort %>%
-  mutate(jw1 = 1, 
-         Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
-         complier = as.numeric(rbernoulli(nrow(cohort), 1-parms$mda$fr_excluded)))
-
-
-#Environment is initialized as empty
-eggs0 <- 0
-contributions0 <- 0
-
-#Initial cumulative exposure
-cum_exp <- sum(Age_profile_exp(cohort$age)$y * cohort$Ind_sus) 
-#Index of SAC in the cohort
-SAC <- which(cohort$age >= 5 & cohort$age <= 15)
-
-#Snail population is initialized
-snail.pop=10000
-E0=0
-I0=0
-S0=snail.pop - sum(E0, I0)
-C0=0
+init$humans$pop <- init$humans$pop %>%
+    mutate(Ind_sus = rgamma(nrow(cohort), shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
+           complier = as.numeric(rbernoulli(nrow(cohort), 1-parms$mda$fr_excluded)))
 
 ################
-#Simulation settings
+#Preparing simulation settings
 ################
 source("Setting_simulation_scenario.R")
 
-################
-#Set output directory to save results
-################
-#This will be the directory where the individual output is automatically saved throughout the simulations
-if(write.output == TRUE){
-  ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
-  if(!file.exists(ind.output.dir)){
-    dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
-  }
-  if(file.exists(ind.output.dir)){
-  #Empty the Output folder (only if needed)
-  unlink(file.path(ind.output.dir, "/*")) 
-  }
-}
-
-#parms$snails$snail_transmission_rate = parms$snails$snail_transmission_rate/100
 
 ################
 #Run the model
 ################
+setwd(source.dir)
+
 time.start <- Sys.time()
 source("04_Model_specification.R")
 time.end <- Sys.time()
@@ -134,8 +106,8 @@ if(!file.exists(pop.output.dir)){
 }
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
-res <- bind_rows(results)
-saveRDS(res, file = file.path(pop.output.dir, 
+#res <- bind_rows(results)
+saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
                            paste(setting, ".RDS", sep = "")))
 
 ################

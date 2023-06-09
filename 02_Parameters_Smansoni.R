@@ -15,8 +15,7 @@ parms <- list(#Demography
               #The emigration rate is calibrated to have constant population
               
               parasite = list(k_w = 0.15, #0.15 Anderson, Turner (2016) #can change for different settings (0.3 Sake) 
-                               v = 1, #Transmission probability
-                               zeta = 0.004, #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
+                              zeta = 0.004, #overall exposure rate. (0.42 water contacts rate per day per individual, Seydou, De Vlas,.. 2011). (changing accordingly to endem. scenario)
                                ext.foi = list(value = 1, #monthly
                                               duration = 2), #years
                                Tw = 60, #Average worm's lifespan in host in months (months)(40 m Sake) (5 years for Anderson and May 1985a)
@@ -27,6 +26,14 @@ parms <- list(#Demography
                                             z = 0.0007, #severity of density dependent fecundity
                                             k_e = 0.87)), #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 Sake1992, but with three months interval and 25gr KK)
                                             #co_rate <- 1 #Average contribution rate (monthly) #to include seasonal patterns
+              exposure = list(#model-derived
+                              ICL_derived = list(ages = c(0, 5, 10, 16, 200),
+                                                 exp = c(0.032, 0.61, 1, 0.06, 0.06),
+                                                 method = "constant"), #Relative Age-specific exposure rates (activity/person/day))
+                              #based on water-contacts
+                              Sow_derived = list(ages = c(0, 5, 15, 40, 100),
+                                                 exp = c(0, 0.62, 1, 0.51, 0.51),
+                                                 method = "linear")),
               mda = list(age.lo = 5,
                         age.hi = 15,
                         start = 150, #70,
@@ -52,3 +59,10 @@ parms <- list(#Demography
 )
 
 parms$parasite$phi = 1-exp(-3/(parms$parasite$Tw - parms$parasite$pp)) #(monthly) proportion of adult worm pairs aging from age basket i to i+1, assuming 3 baskets 
+
+# age_groups <- c(0, 5, 10, 16, 200)
+# exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06) #Relative Age-specific exposure rates (activity/person/day) 
+# Moderate exposure in adults
+
+#exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
+#Data from water contacts computed from Seydou S., De Vlas SJ, et al. (2011)

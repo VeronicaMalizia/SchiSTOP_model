@@ -9,19 +9,15 @@ geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 
 #Functions (they can be a separate script)
-age_groups <- c(0, 5, 10, 16, 200)
-exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06) #Relative Age-specific exposure rates (activity/person/day) 
-#exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
-#Data from water contacts computed from Seydou S., De Vlas SJ, et al. (2011)
-Age_profile_exp <- function(a){
-  approx(x=age_groups, y=exposure_rates, xout=c(a), method = "constant")
+Age_profile_exp <- function(age_groups, exposure_rates, a, method){
+  approx(x=age_groups, y=exposure_rates, xout=c(a), method = method)
 }
 Age_profile_contr <- function(a){
   approx(x=c(0, 10, 100), y=c(1, 1, 1), xout=c(a), method = "linear")
 }
-FOIh <- function(l, zeta, v, a, is){
-  Rel_ex <- Age_profile_exp(a)$y * is
-  return(l * zeta * v * Rel_ex)
+FOIh <- function(l, zeta, rel_exp, is){
+  Rel_ex <- rel_exp$y * is
+  return(l * zeta * Rel_ex)
 }
 hyp_sat <- function(alpha, beta, w){ #Hyperbolic saturating function 
   f <- (alpha*w) / (1 + ((alpha*w) / beta))

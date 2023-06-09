@@ -30,11 +30,6 @@ library(scales)
 geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
 ################
-#SETTING THE SCENARIO
-seeds <- 50
-
-endem <- "High"
-setting <- paste(endem, "complete", sep = "_")
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -43,13 +38,14 @@ setwd(source.dir)
 
 #Load parameters
 source("02_Parameters_Smansoni.R")
-
+#Setting scenario
+source("Setting_simulation_scenario.R")
 
 ```
 
 # Simulation setting
 
-## High endemicity setting
+## Moderate endemicity setting
 
 ```{r parameters, echo=FALSE, results='asis'}
 library(knitr)
@@ -71,9 +67,9 @@ pop.output.dir <- file.path(source.dir, "Output/Population")
 res <- readRDS(file.path(pop.output.dir, 
                paste(setting, ".RDS", sep = "")))
 
-if(endem=="High" | endem=="Moderate"){
-  res <- res[- which(res$Immunity=="Absent" & res$Snails=="Absent" & res$DDF=="Absent"),]
-}
+# if(endem=="High" | endem=="Moderate"){
+#   res <- res[- which(res$Immunity=="Absent" & res$Snails=="Absent" & res$DDF=="Absent"),]
+# }
 #Computing faded-out runs at pre-control (149 ys is soon before MDA)
 faided <- res %>%
   filter(time==149*12) %>%
@@ -81,9 +77,9 @@ faided <- res %>%
   summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
 n_faided <- length(which(faided$faided_seed>0))
 
-#Computing runs that get eliminated after MDA:
+#Computing runs that get eliminated after MDA (check 50 ys after MDA):
 eliminated <- res %>%
-  filter(time==3600) %>%
+  filter(time==parms$mda$end) %>%
   group_by(Immunity, Snails, DDF) %>%
   summarise(eliminated_seed = length(which(eggs_prev_SAC==0))*100/seeds)
 
@@ -96,7 +92,7 @@ data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev),
-            PHI = mean(Heggs_prev),
+            PHI = mean(Heggs_prev_SAC),
             miracidiae = mean(miracidiae),
             cercariae = mean(cercariae),
             snail_inf = mean(inf_snail),
@@ -256,45 +252,48 @@ data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
   bind_rows %>%
   filter(time == 141 | time == 161)
 
-if(endem=="High" | endem=="Moderate"){
-  data_all <- data_all[- which(data_all$Immunity=="Absent" & data_all$Snails=="Absent" & data_all$DDF=="Absent"),]
-}
+# if(endem=="High" | endem=="Moderate"){
+#   data_all <- data_all[- which(data_all$Immunity=="Absent" & data_all$Snails=="Absent" & data_all$DDF=="Absent"),]
+# }
 
 # Combine data sets into one
 #Aggregate by age groups
 #Filter one year of interest
 #unique(data_all$time) #individual output contains time in years
 #years <- c(81, 101, 151, 181) #c(51, 81, 101, 151, 161, 171, 181, 191)
-age_out <- data_all %>%
-  #filter(seed %!in% dead.seeds) %>%
-  mutate(age_group = case_when(age<=1 ~ "0_1",
-                               age>1 & age<=5 ~ "1_5",
-                               age>5 & age<=15 ~ "5_15",
-                               age>15 & age<=30 ~ "15_30",
-                               age>30 & age<=40 ~ "30_40",
-                               age>40 ~ "40_90")) %>% 
+# age_out <- data_all %>%
+#   #filter(seed %!in% dead.seeds) %>%
+#   mutate(age_group = case_when(age<=1 ~ "0_1",
+#                                age>1 & age<=5 ~ "1_5",
+#                                age>5 & age<=15 ~ "5_15",
+#                                age>15 & age<=30 ~ "15_30",
+#                                age>30 & age<=40 ~ "30_40",
+#                                age>40 ~ "40_90")) %>% 
+#   group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+#   summarise(epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that age group
+#             wp = mean(tot_wp),
+#             dwp = mean(cum_dwp), 
+#             rate = mean(rate))
+
+
+age_out <- data_all %>% 
+  group_by(time, Immunity, Snails, DDF) %>%
+  mutate(age_group = cut_number(age, n = 14)) %>%
   group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
-  summarise(epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that age group
+  summarise(avg_age_group = mean(age),
+            epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that age group
             wp = mean(tot_wp),
             dwp = mean(cum_dwp), 
             rate = mean(rate))
-            # epg_lo = ci(ec*24)[1],
-            # epg_hi = ci(ec*24)[2],
-            # wp_lo = ci(tot_wp)[1],
-            # wp_hi = ci(tot_wp)[2],
-            # dwp_lo = ci(cum_dwp)[1],
-            # dwp_hi = ci(cum_dwp)[2],
-            # rate_lo = ci(rate)[1],
-            # rate_hi = ci(rate)[2]) 
 
-age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
-                                                          "1_5",
-                                                          "5_15",
-                                                          "15_30",
-                                                          "30_40",
-                                                          "40_90"))
+# age_out$age_group <- factor(age_out$age_group, levels = c("0_1",
+#                                                           "1_5",
+#                                                           "5_15",
+#                                                           "15_30",
+#                                                           "30_40",
+#                                                           "40_90"))
 age_out$time <- factor(as.factor(age_out$time), 
-                       levels = c("141", "161"), labels = c("Pre",  "Post"))
+                       levels = c("141", "161"), labels = c("Pre control",  "Post control"))
                               
 # saveRDS(age_out, file = file.path(ind.output.dir, "Avg_individual_output_pre&postmda.RDS"))
 
@@ -302,7 +301,8 @@ age_out$time <- factor(as.factor(age_out$time),
 data_toplot <- age_out %>%
   #filter(!(Immunity == "Absent" & Snails== "Absent" & DDF== "Absent")) %>%
   group_by(age_group, time, Immunity, Snails, DDF) %>%
-  summarise(epg_mean = mean(epg),
+  summarise(avg_age_group = mean(avg_age_group),
+            epg_mean = mean(epg),
             epg_lo = ci(epg)[1],
             epg_hi = ci(epg)[2],
             wp_mean = mean(wp),
@@ -319,20 +319,23 @@ data_toplot <- age_out %>%
 ```{r plot functions, echo=FALSE}
 #Mean intensity
 eggs <- ggplot(filter(data_toplot, DDF=="Mild"), 
-         aes(x=age_group, y=epg_mean+1, group = interaction(DDF, Immunity)))+
-  geom_pointrange(aes(ymin=epg_lo+1, ymax=epg_hi+1, colour = DDF, shape = Immunity)) +
-  geom_line(data = filter(data_toplot, DDF=="Mild"),
+         aes(x=avg_age_group, y=epg_mean, group = interaction(DDF, Immunity)))+
+  geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
+  geom_line(#data = filter(data_toplot, DDF=="Mild"),
             aes(colour = DDF, linetype = Immunity), size = 1) +
   #labs(title = paste(endem, "endemicity setting", sep = " ")) +
-  facet_grid(time ~ Snails, labeller = labeller(.rows = label_both, .cols = label_both), scales = "free_y") +
+  facet_grid(time ~ Snails, labeller = labeller(.rows = label_both, .cols = label_both)) + #, scales = "free_y") +
   scale_y_continuous(name = "Egg counts (epg) \n",
                 #breaks = seq(0, 10000, 200),
                 #limits = c(0.5, 8000), #3000 l-m 8000 high
                 expand = c(0, 0)) +
-  scale_x_discrete(name = "\n Age group [years]") +
+  scale_x_continuous(name = "\n Age [years]",
+                     breaks = seq(0, 80, 10),
+                     limits = c(0, 70),
+                     expand = c(0, 0)) +
   expand_limits(x = 0,y = 0) +
   guides(shape = "none") +
-  scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
+  #scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
   scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
   theme_bw() +
   theme(legend.position="bottom",
@@ -344,16 +347,15 @@ eggs <- ggplot(filter(data_toplot, DDF=="Mild"),
 # dev.off()
 
 #Parasite establishment rate
-rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = interaction(DDF, time)))+
-  geom_pointrange(aes(ymin=rate_lo+0.5, ymax=rate_hi+0.5, colour = DDF)) +
+rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean, group = interaction(DDF, time)))+
+  geom_pointrange(aes(ymin=rate_lo, ymax=rate_hi, colour = DDF)) +
   geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_log10(name = "Parasite establishment rate + 0.5 \n",
+  scale_y_continuous(name = "Parasite establishment rate \n",
                      #breaks = seq(0, 20, 2),
-                     limits = c(0.5, 80), #20 l-m 80 high
-                     #expand = c(0, 0)
-  ) +
+                     #limits = c(0.5, 80), #20 l-m 80 high
+                     expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
@@ -367,12 +369,11 @@ rate <- ggplot(data_toplot, aes(x=age_group, y=rate_mean+0.5, group = interactio
 # dev.off()
 
 #Worms
-worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = interaction(DDF, time)))+
-  geom_pointrange(aes(ymin=wp_lo+0.5, ymax=wp_hi+0.5, colour = DDF)) +
+worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean, group = interaction(DDF, time)))+
+  geom_pointrange(aes(ymin=wp_lo, ymax=wp_hi, colour = DDF)) +
   geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both),
-             scales = "free_y") +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) + #, scales = "free_y") +
   scale_y_continuous(name = "Worm load (pairs) \n",
                 #breaks = seq(0, 10000, 200),
                 #limits = c(0.5, 5000), #1000 l-m #5000 high
@@ -390,16 +391,15 @@ worms <- ggplot(data_toplot, aes(x=age_group, y=wp_mean+0.5, group = interaction
 # dev.off()
 
 #Dead worm pairs
-dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean+0.5, group = interaction(DDF, time)))+
-  geom_pointrange(aes(ymin=dwp_lo+0.5, ymax=dwp_hi+0.5, colour = DDF)) +
+dead_worms <- ggplot(data_toplot, aes(x=age_group, y=dwp_mean, group = interaction(DDF, time)))+
+  geom_pointrange(aes(ymin=dwp_lo, ymax=dwp_hi, colour = DDF)) +
   geom_line(aes(colour = DDF, linetype = time)) +
   labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  scale_y_log10(name = "Cumulated dead worm (pairs) + 0.5 \n",
+  scale_y_continuous(name = "Cumulated dead worm (pairs) \n",
                 #breaks = seq(0, 10000, 200),
-                limits = c(0.5, 10000),
-                #expand = c(0, 0)
-  ) +
+                #limits = c(0.5, 1000),
+                expand = c(0, 0)) +
   scale_x_discrete(name = "\n Age group [years]") +
   expand_limits(x = 0,y = 0) +
   theme_bw() +

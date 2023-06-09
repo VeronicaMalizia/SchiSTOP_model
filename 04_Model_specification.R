@@ -54,36 +54,25 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      #profvis({   
                      #Time step events, for each individual
                      #Initialize population
-                     pop <- cbind(cohort, #%>%
-                                  ID = c(1:nrow(cohort)),
-                                  death_age = 100,
-                                  age_group = as.numeric(cut(cohort$age, c(-1, prob_death$Age_hi))),
-                                  rate = 0,
-                                  wp1 = 0,
-                                  wp2 = 0,
-                                  wp3 = 0,
-                                  jw2 = 0,
-                                  jw3 = 0,
-                                  cum_dwp = 0,
-                                  ec = 0) #female worms
+                     pop <- init$humans$pop 
                      N <- nrow(pop)
                      ever_lived <- N
-                     SAC <- which(pop$age >= 5 & pop$age <= 15)
+                     SAC <- init$humans$SAC
                      
                      true_prev <- c(0)
                      eggs_prev <- c(0)
                      eggs_prev_SAC <- c(0)
                      Heggs_prev <- c(0)
                      Heggs_prev_SAC <- c(0)
-                     inf_snail <- I0
-                     susc_snail <- S0
-                     exp_snail <- E0
+                     inf_snail <- init$snails$I0
+                     susc_snail <- init$snails$S0
+                     exp_snail <- init$snails$E0
                      
                      #Create initial cloud
                      #Initialize quantities
-                     m_in <- sum(contributions0)
+                     m_in <- sum(init$environment$contributions0)
                      ## Start values
-                     newstart <- c(S0, E0, I0, C0) #Initializing snails
+                     newstart <- c(init$snails$S0, init$snails$E0, init$snails$I0, init$snails$C0) #Initializing snails
                      cercariae <- 0 #to eventually plot the cercariae (cloud)
                      ind_file <- c()
                      for(t in 2:(12*T)){
@@ -154,7 +143,19 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        N[t] <- nrow(pop)
                        SAC <- which(pop$age >= 5 & pop$age <= 15)
                        
-                       cum_exp <- sum(Age_profile_exp(pop$age)$y*pop$Ind_sus) #Cumulative exposure
+                       #Relative exposure
+                       if(exposure=="ICL")
+                         rel_exp <- Age_profile_exp(parms$exposure$ICL_derived$ages,
+                                                     parms$exposure$ICL_derived$exp,
+                                                     pop$age,
+                                                     parms$exposure$ICL_derived$method)
+                       if(exposure=="Sow")
+                         rel_exp <- Age_profile_exp(parms$exposure$Sow_derived$ages,
+                                                     parms$exposure$Sow_derived$exp,
+                                                     pop$age,
+                                                     parms$exposure$Sow_derived$method)
+                       
+                       cum_exp <- sum(rel_exp$y*pop$Ind_sus) #Cumulative exposure
                        
                        ###########################################
                        #Parasitology (vectorised)
@@ -257,7 +258,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        ########## 6. EXPOSURE OF HUMANS 
                        #Each individual assumes new worms (FOIh) and immunity applies
                        #One exposure rate per individual (based on age and ind. sus.)
-                       pop$rate = FOIh(l=cercariae[t], parms$parasite$zeta, parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
+                       pop$rate = FOIh(l=cercariae[t], zeta=parms$parasite$zeta, rel_exp=rel_exp, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
                        #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                        
                        ########## 7. SAVE OUTPUT

@@ -1,7 +1,7 @@
-T <- 100 #number of years simulated
-seeds <- 10
+T <- 300 #number of years simulated
+seeds <- 20
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- FALSE #disable individual output for grid search (saving time)
+write.output <- TRUE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -11,14 +11,18 @@ write.output <- FALSE #disable individual output for grid search (saving time)
 
 parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  age.hi = 15,
-                 start = 0, #150,
-                 end = 0, #160,
+                 start = 150,
+                 end = 160,
                  frequency = 1, #annual
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
+#Endemicity
+endem <- "Moderate"
 
-endem <- "High"
+#Behavior in exposure
+exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
+
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
                                     imm_strength = c("Absent", "Mild", "Strong"),
@@ -30,7 +34,7 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 ######
 #IF LOW ENDEM
 if(endem=="Low"){
-  stoch_scenarios <- stoch_scenarios[301:nrow(stoch_scenarios),]
+  stoch_scenarios <- stoch_scenarios[(seeds*6+1):nrow(stoch_scenarios),] #61 or 301
   parms$parasite$ext.foi$value = 0.1 #0.1
   parms$parasite$ext.foi$duration = 0.25 #1/12 #years
 }
@@ -49,14 +53,14 @@ if(endem=="High"){
 }
 ######
 
-stoch_scenarios <- filter(stoch_scenarios, DDF_strength != "Absent" &
-                            snails == "Strong" & imm_strength == "Mild")
-zetas <- read_excel("Zetas_new.xlsx") %>%
-  filter(Endemicity == endem & Snails == "Strong" & Immunity == "Mild" & DDF != "Absent")
+zetas <- read_excel("Zetas_Sow_func.xlsx") %>%
+  filter(Endemicity == endem) # & Snails == "Strong" & Immunity == "Mild" & DDF != "Absent")
+#Remove scenario with "all absent" because not at eq.
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
-                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds))
+                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds)) %>%
+  filter(!(DDF_strength == "Absent" & snails == "Absent" & imm_strength == "Absent"))
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load(paste("Matched_alphas_", endem, ".RData", sep = ""))
@@ -65,5 +69,20 @@ load(paste("Matched_alphas_", endem, ".RData", sep = ""))
 # parms$snails$snail_transmission_rate = 5e-10
 #parms$parasite$k_w = 0.1
 
-setting <- paste(endem, "retuning", sep = "_")
+setting <- paste(endem, "retuning_Sowfunc", sep = "_")
+
+################
+#Set output directory to save results
+################
+#This will be the directory where the individual output is automatically saved throughout the simulations
+if(write.output == TRUE){
+  ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
+  if(!file.exists(ind.output.dir)){
+    dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
+  }
+  # if(file.exists(ind.output.dir)){
+  #   #Empty the Output folder (only if needed)
+  #   unlink(file.path(ind.output.dir, "/*")) 
+  # }
+}
 
