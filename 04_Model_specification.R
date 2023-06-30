@@ -16,7 +16,7 @@ library(doParallel)
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(parallel::detectCores(logical = TRUE), nrow(stoch_scenarios)))
+cluster <- makeCluster(min(8, nrow(stoch_scenarios)))
 clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
@@ -32,7 +32,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$parasite$zeta = scen$zeta #overall exposure rate.  
                      parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
                                                     scen$imm_strength== "Mild" ~ 0.0005,
-                                                    scen$imm_strength== "Strong" ~ 0.005) #immunity slope parameter
+                                                    scen$imm_strength== "Strong" ~ 0.002) #immunity slope parameter
                      parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No module
                                                                 scen$snails == "Mild" ~ 20000,
                                                                 scen$snails == "Strong" ~ 10000)

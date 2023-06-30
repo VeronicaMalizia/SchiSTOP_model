@@ -1,5 +1,5 @@
 T <- 300 #number of years simulated
-seeds <- 20
+seeds <- 30
 fr <- 10 #frequency for printing to file the individual output [years]
 write.output <- TRUE #disable individual output for grid search (saving time)
 
@@ -18,7 +18,7 @@ parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
 #Endemicity
-endem <- "Moderate"
+endem <- "Low"
 
 #Behavior in exposure
 exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
@@ -36,7 +36,7 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 if(endem=="Low"){
   stoch_scenarios <- stoch_scenarios[(seeds*6+1):nrow(stoch_scenarios),] #61 or 301
   parms$parasite$ext.foi$value = 0.1 #0.1
-  parms$parasite$ext.foi$duration = 0.25 #1/12 #years
+  parms$parasite$ext.foi$duration = 0.5 #1/12 #years
 }
 ######
 #IF MODERATE ENDEM
@@ -53,14 +53,15 @@ if(endem=="High"){
 }
 ######
 
-zetas <- read_excel("Zetas_Sow_func.xlsx") %>%
-  filter(Endemicity == endem) # & Snails == "Strong" & Immunity == "Mild" & DDF != "Absent")
+zetas <- read_excel(paste("Zetas_", exposure, "_func.xlsx", sep = "")) %>%
+  filter(Endemicity == endem) 
 #Remove scenario with "all absent" because not at eq.
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds)) %>%
-  filter(!(DDF_strength == "Absent" & snails == "Absent" & imm_strength == "Absent"))
+  #filter(!(DDF_strength == "Absent" & snails == "Absent" & imm_strength == "Absent"))
+  filter(imm_strength == "Strong")
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load(paste("Matched_alphas_", endem, ".RData", sep = ""))
@@ -69,7 +70,7 @@ load(paste("Matched_alphas_", endem, ".RData", sep = ""))
 # parms$snails$snail_transmission_rate = 5e-10
 #parms$parasite$k_w = 0.1
 
-setting <- paste(endem, "retuning_Sowfunc", sep = "_")
+setting <- paste(endem, "_", exposure, "func", sep = "")
 
 ################
 #Set output directory to save results

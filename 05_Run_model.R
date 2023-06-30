@@ -57,17 +57,17 @@ source("01_Handy_functions.R")
 source("02_Parameters_Smansoni.R")
 
 #Check age-exposure(s) and contribution
-plot(Age_profile_exp(parms$exposure$ICL_derived$ages, 
-                     parms$exposure$ICL_derived$exp, x, 
-                     method = parms$exposure$ICL_derived$method), 
-     xlim = c(0, 100), ylim = c(0, 1), 
-     type = 's', xlab = "Age", ylab = "Relative exposure")
-lines(Age_profile_exp(parms$exposure$Sow_derived$ages, 
-                      parms$exposure$Sow_derived$exp, x, 
-                      method = parms$exposure$Sow_derived$method), type = 'l',col = "dark green")
-abline(v = c(5, 15), col = 'red')
-#lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
-lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
+# plot(Age_profile_exp(parms$exposure$ICL_derived$ages, 
+#                      parms$exposure$ICL_derived$exp, x=0:80, 
+#                      method = parms$exposure$ICL_derived$method), 
+#      xlim = c(0, 100), ylim = c(0, 1), 
+#      type = 's', xlab = "Age", ylab = "Relative exposure")
+# lines(Age_profile_exp(parms$exposure$Sow_derived$ages, 
+#                       parms$exposure$Sow_derived$exp, x=c(0,80), 
+#                       method = parms$exposure$Sow_derived$method), type = 'l',col = "dark green")
+# abline(v = c(5, 15), col = 'red')
+# #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
+# lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
 
 ################
 #Initializing
