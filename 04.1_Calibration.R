@@ -23,6 +23,7 @@ library(beepr)
 library(EasyABC)
 library(deSolve)
 library(splitstackshape)
+library(parallel)
 
 # Working directory
 source.dir <- dirname(getActiveDocumentContext()$path)
@@ -78,18 +79,17 @@ parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
 #theta = c(-5, 0.25, 10^(-10))
 
 #OUTPUT (model) FUNCTION
+#No clusters
 schisto_model <- function(theta){
   
-  # parms$parasite$zeta = exp(theta[1])
-  # parms$parasite$k_w = theta[2]
-  # if(stoch_scenarios$snails != "Absent")
-  #   parms$snails$snail_transmission_rate = theta[3]
+  #Stochastic seed
+  set.seed(theta[1])
   
   #Run model
   # Will give results as object 'results'
   #Step 1
   pop <- init$humans$pop %>%
-    mutate(Ind_sus = rgamma(nrow(cohort), shape = theta[2], scale = 1/theta[2]))
+    mutate(Ind_sus = rgamma(nrow(cohort), shape = theta[3], scale = 1/theta[3]))
   N <- nrow(pop)
   ever_lived <- N
   SAC <- init$humans$SAC
@@ -127,7 +127,7 @@ schisto_model <- function(theta){
                        data.frame(age=0,
                                   sex=as.numeric(rbernoulli(births, 0.5)),
                                   jw1 = 0,
-                                  Ind_sus = rgamma(births, shape = theta[2], scale = 1/theta[2]),
+                                  Ind_sus = rgamma(births, shape = theta[3], scale = 1/theta[3]),
                                   ID = c((ever_lived+1):(ever_lived+births)),
                                   death_age = 100,
                                   age_group = 1,
@@ -224,7 +224,7 @@ schisto_model <- function(theta){
                       k = parms$snails$carrying.capacity, 
                       v = parms$snails$mortality.rate,
                       mir = mirac.input, 
-                      b = theta[3],
+                      b = theta[4],
                       v2 = parms$snails$mortality.rate.infection, 
                       tau = parms$snails$infection.rate,
                       lambda = parms$snails$cerc.prod.rate, 
@@ -257,7 +257,7 @@ schisto_model <- function(theta){
     ########## 6. EXPOSURE OF HUMANS 
     #Each individual assumes new worms (FOIh) and immunity applies
     #One exposure rate per individual (based on age and ind. sus.)
-    pop$rate = FOIh(l=cercariae[t], exp(theta[1]), parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
+    pop$rate = FOIh(l=cercariae[t], exp(theta[2]), parms$parasite$v, a=pop$age, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
     
     ########## 7. SAVE OUTPUT
     # sink("Find_bug.txt", append=TRUE)
@@ -317,8 +317,11 @@ schisto_model <- function(theta){
   #then read with readRDS
 }
 
+#Clusters
+source("04_Model_specification_simpleABC.R")
+
 #Check if it works
-schisto_model()
+#schisto_model()
 
 ###########################
 #Desired output of vector 3
@@ -335,36 +338,43 @@ weigths = c(0.7, 0.30)
 ## to perform the Beaumont et al. (2009)'s method:
 #Ex. desired max distance 0.01 (trying to back-calculate target tolerance from formula)
 # sum(c(0.01, 0.01)^2/c(0.3, 0.2)^2) #0.0036
-tolerance=3 #0.01 
+tolerance=0.0036
 
 
-ABC_Delmoral<-ABC_sequential(method="Delmoral", model=schisto_model, prior=theta_prior, 
-                             #n_cluster = parallel::detectCores(logical = FALSE),
+ABC_Delmoral<-ABC_sequential(method="Delmoral", model=schisto_model_cluster, prior=theta_prior, 
+                             n_cluster = 2, #parallel::detectCores(logical = FALSE),
                              #dist_weights = weigths,
-                             nb_simul=10, M=5, use_seed=FALSE, verbose = FALSE, progress_bar = TRUE,
+                             nb_simul=100, M=5, use_seed=TRUE, verbose = FALSE, progress_bar = TRUE,
                              summary_stat_target=high_stat_obs, tolerance_target=tolerance)
 ABC_Delmoral
 
-
-
+#Check posteriors
+plot(density(ABC_Delmoral$param[,1]), main = "Posterior distribution of zeta")
+plot(density(ABC_Delmoral$param[,2]), main = "Posterior distribution of k_w")
+#Check output
+schisto_model(theta = c(mean(ABC_Delmoral$param[,1]), mean(ABC_Delmoral$param[,2])))
 
 sd(ABC_Delmoral$stats[,1])
 sd(ABC_Delmoral$stats[,2])
 
-method="Beaumont"
-model=schisto_model 
+method="Delmoral"
+model=toy_model3
 prior=theta_prior #inside_prior = FALSE,
-nb_simul=10 
-use_seed=TRUE 
-verbose = TRUE 
+nb_simul=10
+use_seed=TRUE
+verbose = TRUE
 progress_bar = TRUE
-summary_stat_target=high_stat_obs 
+summary_stat_target=high_stat_obs
 tolerance_tab=tolerance
 
 
 toy_model3 <- function(theta){
-  #set.seed(1234)
-  shape = theta[2]
-  scale = 1/theta[2]
-  theta[1] + rgamma(1, shape = shape, scale = scale)
+  set.seed(theta[1])
+  
+  theta[2] + rgamma(1, shape = theta[3], scale = 1/theta[3])
 }
+tmp <- ABC_sequential(method="Delmoral", model=toy_model3, prior=theta_prior, 
+                                 n_cluster = parallel::detectCores(logical = FALSE),
+                                 #dist_weights = weigths,
+                                 nb_simul=100, M=1, use_seed=TRUE, verbose = FALSE, progress_bar = TRUE,
+                                 summary_stat_target=c(-7), tolerance_target=0.1)
