@@ -12,11 +12,12 @@ library(tidyverse)
 library(readxl)
 library(foreach)
 library(doParallel)
+library(parallelly)
 
 writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(8, nrow(stoch_scenarios)))
+cluster <- makeCluster(min(availableCores(omit = 1), nrow(stoch_scenarios)))
 clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
@@ -250,9 +251,19 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                        out2$E[nrow(out2)],
                                        out2$I[nrow(out2)],
                                        out2$C[nrow(out2)])
+                         if(out2$E[nrow(out2)]<1e-20)
+                           newstart[2] <- 0
+                         if(out2$I[nrow(out2)]<1e-20)
+                           newstart[3] <- 0
                          
                          #Cercarial production 
                          cercariae[t] <- out2$C[nrow(out2)]
+                         
+                         if(out2$C[nrow(out2)]<1e-20){
+                           newstart[4] <- 0
+                           cercariae[t] <- 0
+                         }
+                         
                        }
                        
                        ########## 6. EXPOSURE OF HUMANS 

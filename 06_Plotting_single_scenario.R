@@ -36,8 +36,8 @@ avg_res <- res %>%
 
 #Plot prevalence
 #Fig1 <- 
-  filter(res, Immunity=="Absent" & DDF=="Absent") %>%
-ggplot(aes(x=time/12)) +
+  #filter(res, Immunity=="Absent" & DDF=="Absent") %>%
+ggplot(res, aes(x=time/12)) +
   geom_line(aes(y=true_prev, group = seed), color = "grey20", alpha = 0.3) +
   geom_line(data=avg_res, aes(y=true_prev, color="True")) +
   geom_line(aes(y=eggs_prev, group = seed), color = "turquoise", alpha = 0.3) +

@@ -58,7 +58,7 @@ max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given success
 cerc.prod.rate = 50 #1/d per infected snail
 cerc.mortality = 1 #1/d 
 
-mirac.input = 30000 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
+mirac.input = 0.1 #chi*miracidiae will be divided by N[t] in the system #Civitello uses a cumulative factor of 0.01
 parms  <- c(beta0 = max.reproduction.rate, k = carrying.capacity, v = mortality.rate,
             b = snail_transmission_rate, mir = mirac.input, #l0 = max.invasion, #chi = rej.prob, 
             v2 = mortality.rate.infection, tau = infection.rate,
@@ -81,7 +81,13 @@ C0=0
 ## Start values for steady state
 xstart <- c(S = S0, E = E0, I = I0, C = C0)
 
-#xstart <- c(S = out2$S[ndays], E = out2$E[ndays], I = out2$I[ndays], C = out2$C[ndays])
+xstart <- c(S = out2$S[ndays], E = out2$E[ndays], I = out2$I[ndays], C = out2$C[ndays])
+if(out2$E[nrow(out2)]<1e-4)
+  xstart[2] <- 0
+if(out2$I[nrow(out2)]<1e-4)
+  xstart[3] <- 0
+if(out2$C[nrow(out2)]<1e-4)
+  xstart[4] <- 0
 
 ## Solving single run
 # solve ODEs

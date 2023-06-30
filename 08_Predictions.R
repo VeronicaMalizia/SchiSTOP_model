@@ -64,7 +64,7 @@ data_avg <- res %>%
 
 #Computing runs that reach EPHP or elimination:
 ephp <- res %>%
-  filter(time==(parms$mda$end+40)*12) %>%
+  filter(time==(parms$mda$end+50)*12) %>%
   group_by(Snails, Immunity, DDF) %>%
   summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
             eliminated = length(which(eggs_prev_SAC==0))*100/seeds) %>%

@@ -50,6 +50,7 @@ vignettes/*.pdf
 /Output*
 /Plots/
 /Population_output/
+/Grid search/
 
 #Changing file
 Setting_simulation_scenario.R
