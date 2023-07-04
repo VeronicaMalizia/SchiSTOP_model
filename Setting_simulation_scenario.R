@@ -9,8 +9,8 @@ write.output <- TRUE #disable individual output for grid search (saving time)
 #For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
 #Combinations of modelling scenarios and stochastic seed
 
-parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
-                 age.hi = 15,
+parms$mda <- list(age.lo = 2, #SAC is 5-15 #all population >= 2ys (WHO)
+                 age.hi = 100,
                  start = 150,
                  end = 160,
                  frequency = 1, #annual
@@ -18,7 +18,7 @@ parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
 #Endemicity
-endem <- "Low"
+endem <- "Moderate"
 
 #Behavior in exposure
 exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
@@ -59,9 +59,9 @@ zetas <- read_excel(paste("Zetas_", exposure, "_func.xlsx", sep = "")) %>%
 stoch_scenarios <- mutate(stoch_scenarios, 
                           zeta = rep(zetas$Zeta_grid_search, each = seeds),
                           worms_aggr = rep(zetas$Kw, each = seeds),
-                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds)) %>%
+                          tr_snails = rep(zetas$`Transmission on snails`, each = seeds)) #%>%
   #filter(!(DDF_strength == "Absent" & snails == "Absent" & imm_strength == "Absent"))
-  filter(imm_strength == "Strong")
+  #filter(imm_strength == "Strong")
 
 #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
 load(paste("Matched_alphas_", endem, ".RData", sep = ""))
@@ -70,7 +70,7 @@ load(paste("Matched_alphas_", endem, ".RData", sep = ""))
 # parms$snails$snail_transmission_rate = 5e-10
 #parms$parasite$k_w = 0.1
 
-setting <- paste(endem, "_", exposure, "func", sep = "")
+setting <- paste(endem, "_", exposure, "func_commMDA", sep = "")
 
 ################
 #Set output directory to save results

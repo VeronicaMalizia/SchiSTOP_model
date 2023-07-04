@@ -18,7 +18,7 @@ writeLines(c(""), "Sink.txt") #initiate log file
 writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(availableCores(omit = 1), nrow(stoch_scenarios)))
-clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
+#clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
 results <- foreach(k = 1:nrow(stoch_scenarios),
