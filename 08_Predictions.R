@@ -1,7 +1,6 @@
 rm(list = ls())
 
 .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
-
 library(tidyverse)
 library(readxl)
 library(ggridges)
@@ -11,23 +10,23 @@ library(rstudioapi)
 library(scales)
 library(plotly)
 
-`%!in%` <- Negate(`%in%`)
-geom_mean <- function(x){exp(mean(log(x)))}
-ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
-################
-#SETTING THE SCENARIO
-seeds <- 50
-
-endem <- "High"
-setting <- paste(endem, "complete", sep = "_")
-
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
 #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 
+#Load functions
+source("01_Handy_functions.R")
+
 #Load parameters
 source("02_Parameters_Smansoni.R")
+
+######### Setting #########
+#Endemicity
+endem <- "Low"
+#Behavior in exposure
+exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
+setting <- paste(endem, "_", exposure, "func", sep = "")
 
 #Load population output
 #####Load collated results and produce multi-panel plots
