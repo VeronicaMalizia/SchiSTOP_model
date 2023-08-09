@@ -1,0 +1,155 @@
+---
+title: "Supplementary_FileS2"
+author: "Veronica Malizia"
+date: '2023-07-26'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+
+.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
+                      fig.width=12, fig.height=12, dpi = 600)
+```
+
+```{r setting, echo=FALSE, include=FALSE}
+
+library(tidyverse)
+library(readxl)
+library(ggridges)
+library(patchwork)
+library(egg)
+library(rstudioapi)
+library(scales)
+#library(plotly)
+library(tagger)
+library(rempsyc)
+
+`%!in%` <- Negate(`%in%`)
+geom_mean <- function(x){exp(mean(log(x)))}
+ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
+################
+
+#Set folder
+source.dir <- dirname(getActiveDocumentContext()$path)
+setwd(source.dir)
+
+#Load parameters
+source("02_Parameters_Smansoni.R")
+#Setting scenario
+source("Setting_simulation_scenario.R")
+setting <- paste(exposure, "func", sep = "_")
+
+```
+
+```{r loading individual data, echo=FALSE, include=FALSE}
+
+# exposure <- "Based on water contacts" #"Model-derived function" 
+# #Load individual output
+# #Collate results by seeds
+# ind.output.dir <- file.path(source.dir, paste("Output/Individual/All_SACMDA/", setting, sep = ""))
+# 
+# data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
+#                        pattern = "^Ind_out_seed", full.names = TRUE) %>%
+#   lapply(readRDS) %>%              # Store all files in list
+#   #lapply(read_csv, show_col_types = F) %>%
+#   bind_rows %>%
+#   filter(time == parms$mda$start-9) # | time == parms$mda$end+1) #In the individual output, time is already in years
+# 
+# age_out <- data_all %>%
+#   group_by(time, Immunity, Snails, DDF, Endemicity) %>%
+#   mutate(age_group = cut_number(age, n = 14)) %>%
+#   group_by(seed, time, age_group, Immunity, Snails, DDF, Endemicity) %>% #sex not for now
+#   summarise(avg_age_group = mean(age),
+#             epg = mean(ec*24), #geom_mean(ec*24+1), #means over individuals of that age group
+#             wp = mean(tot_wp),
+#             dwp = mean(cum_dwp),
+#             rate = mean(rate))
+# 
+# #Average over seeds
+# data_toplot <- age_out %>%
+#   group_by(age_group, time, Immunity, Snails, DDF, Endemicity) %>%
+#   summarise(avg_age_group = mean(avg_age_group),
+#             epg_mean = mean(epg),
+#             epg_lo = ci(epg)[1],
+#             epg_hi = ci(epg)[2],
+#             wp_mean = mean(wp),
+#             wp_lo = ci(wp)[1],
+#             wp_hi = ci(wp)[2],
+#             dwp_mean = mean(dwp),
+#             dwp_lo = ci(dwp)[1],
+#             dwp_hi = ci(dwp)[2],
+#             rate_mean = mean(rate),
+#             rate_lo = ci(rate)[1],
+#             rate_hi = ci(rate)[2]) %>%
+#   mutate(Exposure = exposure)
+# 
+# data_toplot$Endemicity <- factor(as.factor(data_toplot$Endemicity),
+#                                      levels = c("Low", "Moderate", "High"))
+```
+
+```{r plot functions, echo=FALSE}
+#Mean intensity
+eggs <- function(x){
+ggplot(filter(data_toplot, Endemicity == x),
+       aes(x=avg_age_group, y=epg_mean, group = Immunity))+
+  #geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
+  geom_line(aes(linetype = Immunity, colour = DDF), size = 1) +
+  labs(title = paste(x, "endemicity setting", sep = " ")) +
+  facet_grid(Snails ~ DDF, labeller = labeller(.rows = label_both, .cols = label_both), 
+             scales = "free_y") + 
+  tag_facets(tag_levels = "a", position = "tr") +
+  scale_y_continuous(name = "Egg counts (epg) \n",
+                     #breaks = seq(0, 10000, 200),
+                     #limits = c(0.5, 8000), #3000 l-m 8000 high
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "\n Age [years]",
+                     breaks = seq(0, 80, 10),
+                     limits = c(0, 70),
+                     expand = c(0, 0)) +
+  expand_limits(x = 0,y = 0) +
+  guides(shape = "none", colour = "none") +
+  #scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
+  scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        plot.margin = margin(5, 10, 0, 10, "pt"),
+        panel.spacing = unit(1.5, "lines"),
+        legend.key.width = unit(2, "lines"),
+        strip.text = element_text(size = 13),
+        tagger.panel.tag.text = element_text(size = 14),
+        tagger.panel.tag.background = element_blank())
+}
+```
+
+# Age-intensity profiles
+
+## Assumption for the age-exposure function: "Model-derived function"
+
+The figures in this document display the age-intensity profiles for the complete set of modelling scenarios. For each choice of the age-exposure function and each endemicity setting (titles), single panels refer to a fixed combination of the assumptions of density-dependent fecundity (DDF, columns) and snail regulation (rows). A single panel shows the simulated egg counts on the y-axes (mean epg, over age group and 30 stochastic realizations of the model) by age on the x-axes. The age-intensity profiles are displayed at pre-control, by varying the intensity of immunity mechanism (line type). Age bins are defined as to all be equal sized. 
+
+```{r age-intensity plot ICL, echo=FALSE}
+load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_ICL_SupplFig1.RData"))
+
+eggs(x="Low")
+
+eggs(x="Moderate")
+
+eggs(x="High")
+```
+
+## Assumption for the age-exposure function: "Based on water contacts"
+
+```{r age-intensity plot Sow, echo=FALSE}
+load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_Sow_SupplFig1.RData"))
+
+eggs(x="Low")
+
+eggs(x="Moderate")
+
+eggs(x="High")
+```

@@ -1,0 +1,185 @@
+---
+title: "Supplementary_FileS3"
+author: "Veronica Malizia"
+date: '2023-07-26'
+output:
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+
+.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
+                      fig.width=12, fig.height=12, dpi = 600)
+```
+
+```{r setting, echo=FALSE, include=FALSE}
+
+library(tidyverse)
+library(readxl)
+library(ggridges)
+library(patchwork)
+library(egg)
+library(rstudioapi)
+library(scales)
+#library(plotly)
+library(tagger)
+library(rempsyc)
+
+`%!in%` <- Negate(`%in%`)
+geom_mean <- function(x){exp(mean(log(x)))}
+ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
+################
+
+#Set folder
+source.dir <- dirname(getActiveDocumentContext()$path)
+setwd(source.dir)
+
+#Load parameters
+source("02_Parameters_Smansoni.R")
+#Setting scenario
+source("Setting_simulation_scenario.R")
+setting <- paste(exposure, "func", sep = "_")
+
+```
+
+```{r loading population data, echo=FALSE}
+#Load population output
+#####Load collated results and produce multi-panel plots
+pop.output.dir <- file.path(source.dir, "Output/Population")
+load("Population data for Figure2&3.RData") #re, data_avg
+
+```
+
+```{r SAC prev, echo=FALSE}
+
+Fig <- function(x, e) {
+  ggplot(data = filter(data_avg, Endemicity == x, Exposure == e),
+         aes(x = time/12, y = eggs_prev_SAC*100)) +
+  geom_line(data = filter(res, Endemicity == x, Exposure == e),
+            aes(group = interaction(DDF, seed), colour = DDF), 
+            alpha = 0.05) +
+  geom_line(aes(colour = DDF), size = 1) +
+  labs(title = paste(x, "endemicity setting \n", sep = " ")) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
+  tag_facets(tag_levels = "a", position = "tr") +
+  scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
+                     #breaks = seq(0, 100, 20),
+                     #limits = c(0, 80),
+                     expand = expansion(mult = c(0, 0), 
+                                        add = c(0, 6))) +
+  scale_x_continuous(name = "\n Round of treatment",
+                     breaks = seq(parms$mda$end-10, parms$mda$end, 1),
+                     labels = seq(0, 10, 1),
+                     #limits = c(0, 1200),
+                     expand = c(0, 0)) +
+  coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+0.5)) +
+  expand_limits(x = 0,y = 0) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        plot.margin = margin(5, 10, 0, 10, "pt"),
+        panel.spacing = unit(1.5, "lines"),
+        legend.key.width = unit(2, "lines"),
+        text = element_text(size = 15),
+        strip.text = element_text(size = 14),
+        #axis.text = element_text(size = 14),
+        tagger.panel.tag.text = element_text(size = 14),
+        tagger.panel.tag.background = element_blank())
+
+}
+
+Fig2 <- function(x, e) {
+  ggplot(data = filter(data_avg, Endemicity == x, Exposure == e),
+         aes(x = time/12, y = eggs_prev_SAC*100)) +
+  geom_line(data = filter(res, Endemicity == x, Exposure == e),
+            aes(group = interaction(DDF, seed), colour = DDF), 
+            alpha = 0.05) +
+  geom_line(aes(colour = DDF), size = 1) +
+  labs(title = paste(x, "endemicity setting \n", sep = " ")) +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
+  tag_facets(tag_levels = "a", position = "tr") +
+  scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
+                     #breaks = seq(0, 100, 20),
+                     #limits = c(0, 80),
+                     expand = expansion(mult = c(0, 0), 
+                                        add = c(0, 6))) +
+  scale_x_continuous(name = "\n Years since last treatment round",
+                     breaks = seq(parms$mda$end-10, parms$mda$end+20, 10),
+                     labels = seq(-10, 20, 10),
+                     #limits = c(0, 1200),
+                     expand = c(0, 0)) +
+  coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
+  expand_limits(x = 0,y = 0) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        plot.margin = margin(5, 10, 0, 10, "pt"),
+        panel.spacing = unit(1.5, "lines"),
+        legend.key.width = unit(2, "lines"),
+        text = element_text(size = 15),
+        strip.text = element_text(size = 14),
+        tagger.panel.tag.text = element_text(size = 14),
+        tagger.panel.tag.background = element_blank())
+
+}
+
+```
+
+# Observed patterns
+
+## Effect of treatment
+
+### Assumption for the age-exposure function: "Model-derived function"
+
+```{r age-intensity plot ICL, echo=FALSE}
+
+Fig(x="Low", e="Model-derived function") 
+  
+  Fig(x="Moderate", e="Model-derived function") 
+  
+  Fig(x="High", e="Model-derived function") 
+  #+ plot_layout(guides = 'collect', ncol = 1) & theme(legend.position = 'bottom')
+
+```
+
+## Assumption for the age-exposure function: "Based on water contacts"
+
+```{r age-intensity plot Sow, echo=FALSE}
+
+Fig(x="Low", e="Based on water contacts")  
+
+Fig(x="Moderate", e="Based on water contacts")  
+
+Fig(x="High", e="Based on water contacts") 
+#+ plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+
+```
+
+## Resurgence of prevalence
+
+### Assumption for the age-exposure function: "Model-derived function"
+
+```{r age-intensity plot ICL bounce-back, echo=FALSE}
+
+Fig2(x="Low", e="Model-derived function")  
+  
+  Fig2(x="Moderate", e="Model-derived function")  
+  
+  Fig2(x="High", e="Model-derived function") 
+  #+ plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+
+```
+
+## Assumption for the age-exposure function: "Based on water contacts"
+
+```{r age-intensity plot Sow bounce-back, echo=FALSE}
+
+Fig2(x="Low", e="Based on water contacts") 
+
+Fig2(x="Moderate", e="Based on water contacts") 
+
+Fig2(x="High", e="Based on water contacts") 
+#+ plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+
+```

@@ -7,6 +7,8 @@
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
+n.un <- function(x){length(unique(x))}
+n <- function(x){length(which(x))}
 
 #Functions (they can be a separate script)
 Age_profile_exp <- function(age_groups, exposure_rates, a, method){
