@@ -41,7 +41,7 @@ if(endem=="High" | endem=="Moderate"){
 #Computing faded-out runs at pre-control (149 ys is soon before MDA)
 faided <- res %>%
   filter(time==149*12) %>%
-  group_by(Immunity, Snails, DDF) %>%
+  group_by(Immunity, Snails, DDF, Endemicity) %>%
   summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
 n_faided <- length(which(faided$faided_seed>0))
 
@@ -51,7 +51,7 @@ if(n_faided>0){
 }
 
 data_avg <- res %>%
-  group_by(time, Immunity, Snails, DDF) %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev),
             PHI = mean(Heggs_prev),
@@ -64,7 +64,7 @@ data_avg <- res %>%
 #Computing runs that reach EPHP or elimination:
 ephp <- res %>%
   filter(time==(parms$mda$end+50)*12) %>%
-  group_by(Snails, Immunity, DDF) %>%
+  group_by(Endemicity, Snails, Immunity, DDF) %>%
   summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
             eliminated = length(which(eggs_prev_SAC==0))*100/seeds) %>%
   ungroup() %>%
@@ -113,29 +113,28 @@ dev.off()
 ####Main figure of observed pattern
 #prev_endPC <- filter(data_avg, time == parms$mda$end*12)
 
-Fig2 <- ggplot(data=data_avg, aes(x=time/12)) +
-  geom_line(data = res, aes(y=eggs_prev_SAC*100,
-                            group = interaction(DDF, seed),
-                            colour = DDF), alpha = 0.01) +
-  geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
+Fig2 <- ggplot(data=filter(data_avg, Endemicity=="Low"), aes(x=time/12, y=eggs_prev_SAC*100)) +
+  geom_line(data = filter(res, Endemicity=="Low"), 
+            aes(group = interaction(DDF, seed),
+                colour = DDF), alpha = 0.01) +
+  geom_line(aes(colour = DDF), alpha = 3) + 
   #geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
   # geom_segment(data = prev_endPC,
   #              aes(x = 0, y = eggs_prev_SAC*100, xend = parms$mda$end, yend = eggs_prev_SAC*100, colour = DDF),
   #              linetype = "dashed") +
-  labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   # geom_text(data=text, aes(x=200, y=80, label=my_tag), 
   #           size=3) +
   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
-                     breaks = seq(0, 100, 5),
-                     limits = c(0, 20),
+                     breaks = seq(0, 100, 20),
+                     limits = c(0, 100),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "\n Time [Years from last round of PC]",
-                     breaks = seq(140, parms$mda$end+50, 10),
-                     labels = seq(-20, 50, 10),
+                     #breaks = seq(parms$mda$end-20, parms$mda$end+50, 10),
+                     #labels = seq(-20, 50, 10),
                      #limits = c(0, 1200),
                      expand = c(0, 0)) +
-  coord_cartesian(xlim=c(140, parms$mda$end+50)) +
+  coord_cartesian(xlim=c(0, parms$mda$end-10)) +
   expand_limits(x = 0,y = 0) +
   theme_bw() +
   theme(legend.position="bottom",

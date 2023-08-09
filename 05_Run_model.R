@@ -83,7 +83,6 @@ init$humans$pop <- init$humans$pop %>%
 ################
 source("Setting_simulation_scenario.R")
 
-
 ################
 #Run the model
 ################
@@ -111,55 +110,8 @@ saveRDS(bind_rows(results), file = file.path(pop.output.dir,
                            paste(setting, ".RDS", sep = "")))
 
 ################
-#Quick plotting check
+#Running plotting code
 ################
-res <- bind_rows(results)
-
-#Computing faded-out runs at pre-control (149 ys is soon before MDA)
-faided <- res %>%
-  filter(time==T*12) %>%
-  group_by(Immunity, Snails, DDF) %>%
-  summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
-n_faided <- length(which(faided$faided_seed>0))
-
-#Average by seed
-if(n_faided>0){
-  res <- res[- which(res$time==T*12 & res$eggs_prev_SAC==0), ]
-}
-
-data_avg <- res %>%
-  group_by(time, Immunity, Snails, DDF) %>% #average over seeds
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            PHI = mean(Heggs_prev_SAC),
-            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)),
-            pop_size = mean(pop_size))
-
-#failed <- tmp[which(tmp$time==3600 & tmp$eggs_prev_SAC==0), ]
-
-ggplot(data=data_avg, aes(x=time/12)) +
-  geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), size = 1) +
-  #geom_line(aes(y=PHI*100, colour = DDF)) +
-  geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "longdash") +
-  geom_hline(yintercept = 10) +
-  #geom_line(data = res, aes(y = eggs_prev_SAC*100, colour = DDF), alpha = 0.5) +
-  labs(title = paste(endem, "endemicity setting", sep = " ")) +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
-  # geom_text(data=stoch_scenarios, aes(x=75, y=80, label=zeta),
-  #           size=3) +
-  scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
-                     breaks = seq(0, 100, 20),
-                     limits = c(0, 50),
-                     expand = c(0, 0)) +
-  scale_x_continuous(name = "\n Time [Years]",
-                     limits = c(0, T),
-                     expand = c(0, 0)) +
-  coord_cartesian(xlim=c(0, 300)) +
-  expand_limits(x = 0,y = 0) +
-  theme_bw() +
-  theme(legend.position="bottom",
-        plot.margin = margin(5, 10, 0, 10, "pt"),
-        panel.spacing = unit(1, "lines")) 
-
 ##Checks when running single scenario
 # source("06_Plotting_single_scenario.R")
 # 

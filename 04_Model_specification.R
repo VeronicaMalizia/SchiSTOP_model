@@ -15,7 +15,7 @@ library(doParallel)
 library(parallelly)
 
 writeLines(c(""), "Sink.txt") #initiate log file
-writeLines(c(""), "Find_bug.txt") #initiate log file
+#writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(availableCores(omit = 1), nrow(stoch_scenarios)))
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
@@ -30,7 +30,19 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      
                      #set scenario-specific parameters
                      scen <- stoch_scenarios[k, ]
-                     parms$parasite$zeta = scen$zeta #overall exposure rate.  
+                     
+                     #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
+                     load(paste("Matched_alphas_", scen$endem, ".RData", sep = ""))
+                     
+                     #Transmission parameters
+                     parms$parasite$zeta = scen$zeta #overall exposure rate.
+                     parms$parasite$k_w = scen$worms_aggr
+                     parms$snails$snail_transmission_rate = scen$tr_snails
+                     
+                     parms$parasite$ext.foi$value = scen$Ext_foi_value
+                     parms$parasite$ext.foi$duration = scen$Ext_foi_duration
+                     
+                     #Regulating mechanisms
                      parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
                                                     scen$imm_strength== "Mild" ~ 0.0005,
                                                     scen$imm_strength== "Strong" ~ 0.002) #immunity slope parameter
@@ -43,8 +55,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
                                                        scen$DDF_strength== "Mild" ~ 0.0005,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
-                     parms$parasite$k_w = scen$worms_aggr
-                     parms$snails$snail_transmission_rate = scen$tr_snails
+                     
                      
                      sink("Sink.txt", append=TRUE)
                      cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
@@ -298,6 +309,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                mutate(tot_wp = wp1+wp2+wp3,
                                                       time = t/12, #years
                                                       seed = scen$seed,
+                                                      Endemicity = scen$endem,
                                                       zeta = scen$zeta,
                                                       worms_aggr = scen$worms_aggr,
                                                       tr_snails = scen$tr_snails,
@@ -340,6 +352,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      
                      if(write.output==TRUE){
                        filename <- paste("Ind_out_seed_", scen$seed,
+                                         "_", scen$endem,
                                          "_Imm=", scen$imm_strength,
                                          "Sn=", scen$snails,
                                          "DDF=", scen$DDF_strength, ".RDS", sep="")
@@ -350,6 +363,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      
                      res <- tibble(time = 1:(12*T),
                                    seed = rep(scen$seed, (12*T)),
+                                   Endemicity = rep(scen$endem, (12*T)),
                                    zeta = rep(scen$zeta, (12*T)),
                                    worms_aggr = rep(scen$worms_aggr, (12*T)),
                                    tr_snails = rep(scen$tr_snails, (12*T)),
