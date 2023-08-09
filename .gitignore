@@ -39,6 +39,8 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+Population*.RData
+Individual*.RData
 
 # debug files
 *.txt
