@@ -105,7 +105,7 @@ if(!file.exists(pop.output.dir)){
 }
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
-#res <- bind_rows(results)
+res <- bind_rows(results)
 saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
                            paste(setting, ".RDS", sep = "")))
 

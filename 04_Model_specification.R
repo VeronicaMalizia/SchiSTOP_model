@@ -18,7 +18,7 @@ writeLines(c(""), "Sink.txt") #initiate log file
 #writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(availableCores(omit = 1), nrow(stoch_scenarios)))
-#clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
+clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
 results <- foreach(k = 1:nrow(stoch_scenarios),
@@ -76,6 +76,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      eggs_prev_SAC <- c(0)
                      Heggs_prev <- c(0)
                      Heggs_prev_SAC <- c(0)
+                     avg_geom_intensity <- c(0)
+                     avg_geom_intensity_SAC <- c(0)
+                     avg_intensity <- c(0)
+                     avg_intensity_SAC <- c(0)
                      inf_snail <- init$snails$I0
                      susc_snail <- init$snails$S0
                      exp_snail <- init$snails$E0
@@ -295,6 +299,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        Heggs_prev[t] <- length(which((pop$ec*24)>=400))/nrow(pop)
                        eggs_prev_SAC[t] <- length(which(pop$ec[SAC]>0))/length(SAC)
                        Heggs_prev_SAC[t] <- length(which((pop$ec[SAC]*24)>=400))/length(SAC)
+                       avg_geom_intensity[t] <- geom_mean(pop$ec+1)-1
+                       avg_geom_intensity_SAC[t] <- geom_mean(pop$ec[SAC]+1)-1
+                       avg_intensity[t] <- mean(pop$ec)
+                       avg_intensity_SAC[t] <- mean(pop$ec[SAC])
                        if(scen$snails != "Absent"){
                          inf_snail[t] <- out2$I[nrow(out2)] 
                          susc_snail[t] <- out2$S[nrow(out2)]
@@ -378,6 +386,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    eggs_prev_SAC = eggs_prev_SAC,
                                    Heggs_prev = Heggs_prev,
                                    Heggs_prev_SAC = Heggs_prev_SAC,
+                                   avg_geom_intensity = avg_geom_intensity,
+                                   avg_geom_intensity_SAC = avg_geom_intensity_SAC,
+                                   avg_intensity = avg_intensity,
+                                   avg_intensity_SAC = avg_intensity_SAC,
                                    inf_snail = inf_snail,
                                    susc_snail = susc_snail,
                                    exp_snail = exp_snail)

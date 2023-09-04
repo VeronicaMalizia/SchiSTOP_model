@@ -1,7 +1,7 @@
 T <- 300 #number of years simulated
 seeds <- 30
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- TRUE #disable individual output for grid search (saving time)
+write.output <- FALSE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -9,8 +9,8 @@ write.output <- TRUE #disable individual output for grid search (saving time)
 #For each limiting mechanism, choose level: 'No', 'Mild', 'Strong'
 #Combinations of modelling scenarios and stochastic seed
 
-parms$mda <- list(age.lo = 2, #SAC is 5-15 #all population >= 2ys (WHO)
-                 age.hi = 100,
+parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
+                 age.hi = 15,
                  start = 150,
                  end = 159,
                  frequency = 1, #annual
@@ -39,15 +39,16 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           worms_aggr = rep(zetas$Kw, each = seeds),
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
-  filter(equilibrium==TRUE) %>%
-  mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.1,
+  #filter(equilibrium==TRUE) %>%
+  filter(imm_strength != "Absent" & snails != "Absent") %>%
+  mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
          Ext_foi_duration = case_when(endem == "Low" ~ 0.5,
                                       endem == "Moderate" ~ 2,
                                       endem == "High" ~ 2))
 
-setting <- paste(exposure, "func_commMDA", sep = "_")
+setting <- paste(exposure, "func_successful", sep = "_")
 
 ################
 #Set output directory to save results
