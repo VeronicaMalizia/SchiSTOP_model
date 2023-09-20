@@ -109,6 +109,59 @@ res <- bind_rows(results)
 saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
                            paste(setting, ".RDS", sep = "")))
 
+
+################
+#Check equilibria
+################
+faided <- res %>%
+  filter(time==(parms$mda$start-1)*12) %>%
+  group_by(Immunity, Snails, DDF) %>%
+  summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
+n_faided <- length(which(faided$faided_seed>0))
+#Average by seed
+if(n_faided>0){
+  res <- res[- which(res$time==(parms$mda$start-1)*12 & res$eggs_prev_SAC==0), ]
+}
+
+data_avg <- res %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity) %>%
+  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
+            eggs_prev_tot = mean(eggs_prev),
+            PHI = mean(Heggs_prev_SAC),
+            snail_inf = mean(inf_snail),
+            snail_exp = mean(exp_snail),
+            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
+
+ggplot(data=data_avg, aes(x=time/12)) +
+  # geom_line(data = filter(res, Endemicity == "Low"), 
+  #           aes(y=eggs_prev_SAC*100,
+  #               group = interaction(DDF, seed),
+  #               colour = DDF), alpha = 0.01) +
+  geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
+  geom_hline(yintercept = 10) +
+  geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
+  #geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "dotted") +
+  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
+  scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
+                     breaks = seq(0, 100, 10),
+                     #limits = c(0, 20),
+                     expand = c(0, 0)) +
+  scale_x_continuous(name = "\n Time [Years]",
+                     expand = c(0, 0)) +
+  # scale_x_continuous(name = "\n Years since last treatment round",
+  #                    breaks = seq(parms$mda$end-10, parms$mda$end+20, 10),
+  #                    labels = seq(-10, 20, 10),
+  #                    #limits = c(0, 1200),
+  #                    expand = c(0, 0)) +
+  #coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
+  expand_limits(x = 0,y = 0) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5),
+        plot.margin = margin(5, 10, 0, 10, "pt"),
+        panel.spacing = unit(1.5, "lines"))
+
+
 ################
 #Running plotting code
 ################

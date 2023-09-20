@@ -56,7 +56,7 @@ load("Population data for Figure2&3.RData")
 
 #Computing faded-out runs at pre-control (149 ys is soon before MDA)
 faided <- res %>%
-  filter(time==149*12) %>%
+  filter(time==(parms$mda$start-1)*12) %>%
   group_by(Immunity, Snails, DDF) %>%
   summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/n.un(res$seed))
 n_faided <- length(which(faided$faided_seed>0))
@@ -155,6 +155,11 @@ Fulford.data <- list.files(path = getwd(),  # Identify all output CSV files
 colnames(Fulford.data) <- c("Age", "Eggs", "Village", "Endemicity")
 Fulford.data$Endemicity <- factor(as.factor(Fulford.data$Endemicity),
                                  levels = c("Low", "Moderate", "High"))
+
+##ICL reference
+reference <- data_toplot_ind %>%
+  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function")
+
 eggs <- 
 ggplot(data_toplot)+ #group = Immunity
   #geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
@@ -162,6 +167,8 @@ ggplot(data_toplot)+ #group = Immunity
   geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
   geom_line(data = Fulford.data,
             aes(x=Age, y=Eggs, linetype = Village), colour = "black") +
+  geom_line(data = reference,
+            aes(x=avg_age_group, y=(geom_epg_mean-1)*24), colour = "grey40", linewidth = 1) +
   #labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Endemicity ~ Exposure, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
@@ -177,9 +184,9 @@ ggplot(data_toplot)+ #group = Immunity
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0) +
   #guides(shape = "none", colour = "none") +
-  scale_color_manual(name = "(Snails, Exposure)",
+  scale_color_manual(name = "Immunity",
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
-  #scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
+  #scale_linetype_manual(values = c("dotdashed", "dotted", "dashed")) +
   theme_bw() +
   theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
@@ -189,7 +196,7 @@ ggplot(data_toplot)+ #group = Immunity
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank()) 
 
-tiff(paste("Plots/Manuscript/Fig1.tif", sep = ""), 
+tiff(paste("Plots/Manuscript/Fig1.2.tif", sep = ""), 
      compression="lzw", width=12, height=12, units = "in", res = 600)
 eggs
 dev.off()
@@ -248,8 +255,14 @@ res2 <- res %>%
   #filter(Endemicity == "Moderate", Snails != "Strong", Immunity != "Mild", DDF != "Strong") %>%
   #filter(!(Exposure == "Model-derived function" & Snails == "Absent" & Immunity == "Absent" & DDF == "Mild")) %>%
   #filter(!(Exposure == "Model-derived function" & Snails == "Mild" & Immunity == "Absent" & DDF == "Absent"))
-  filter(!(Exposure == "Based on water contacts" & Immunity == "Absent")) %>% #No age-profiles
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium
+  #filter(!(Exposure == "Based on water contacts" & Immunity == "Absent")) %>% #No age-profiles
+  filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium (DDF strong no equilibrium, but reference)
+
+reference <- res %>%
+  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function") %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
+  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
+            eggs_prev_tot = mean(eggs_prev)) 
 
 # Successful scenarios
 # res3 <- res %>%
@@ -257,18 +270,16 @@ res2 <- res %>%
   
 # Averaging population data
 data_avg2 <- res2 %>%
+  filter(!(Snails == "Absent" & Immunity == "Absent" & DDF == "Absent" & Exposure == "Based on water contacts")) %>% #only if needed
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            eggs_prev_tot = mean(eggs_prev),
-            PHI = mean(Heggs_prev),
-            miracidiae = mean(miracidiae),
-            cercariae = mean(cercariae),
-            snail_inf = mean(inf_snail),
-            snail_exp = mean(exp_snail),
-            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail))) %>%
+  summarise(eggs_prev_SAC = mean(eggs_prev_SAC)) %>%
   mutate(Snails2 = case_when(Snails == "Absent" ~ "Absent",
                              Snails == "Mild" ~ "Mild / Strong",
-                             Snails == "Strong" ~ "Mild / Strong"))
+                             Snails == "Strong" ~ "Mild / Strong")) %>%
+  mutate(Immunity2 = case_when(Immunity == "Absent" ~ "Absent / Mild",
+                               Immunity == "Mild" ~ "Absent / Mild",
+                               Immunity == "Strong" ~ "Strong"))
+
 Fig3 <- 
   ggplot(data_avg2, aes(x=time/12, eggs_prev_SAC*100)) +
   # geom_line(data = res,
@@ -276,6 +287,7 @@ Fig3 <-
   #geom_line(aes(linetype = Immunity, colour = DDF), size = 1) +
   geom_line(aes(group = interaction(DDF, Snails, Immunity, Exposure, Endemicity), 
                 colour = interaction(Snails2, Exposure))) +
+  geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
   facet_grid(Endemicity ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
   tag_facets(tag_levels = "a", position = "tr") +
@@ -292,7 +304,7 @@ Fig3 <-
   coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
   expand_limits(x = 0,y = 0) +
   #scale_linetype_manual(values = c("Absent" = "solid", "Strong" = "dashed")) +
-  scale_color_manual(name = "(Snails, Exposure)",
+  scale_color_manual(name = "(Regulation in snails, Exposure)",
                      labels = c("(Mild / Strong, Model-derived function)", "(Absent, Based on water contacts)", "(Mild / Strong, Based on water contacts)"),
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
   theme_bw() +
@@ -304,7 +316,7 @@ Fig3 <-
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
 
-tiff(paste("Plots/Manuscript/Prova.tif", sep = ""), 
+tiff(paste("Plots/Manuscript/Fig2.2.tif", sep = ""), 
      compression = "lzw", width=12, height=10, units = "in", res = 300)
 Fig3
 dev.off()
@@ -313,7 +325,7 @@ dev.off()
 # Check intensities after treatment for successful scenarios only
 ###################
 # Successful scenarios
-load("Sow_func_successfulscen.RDS")
+res <- readRDS(file.path(pop.output.dir, "Sow_func_successfulscen.RDS"))
 res <- res %>%
   mutate(Exposure = "Based on water contacts")
 res$Endemicity <- factor(as.factor(res$Endemicity),
@@ -321,43 +333,66 @@ res$Endemicity <- factor(as.factor(res$Endemicity),
 
 # Averaging population data
 data_avg3 <- res %>%
-  filter(time == parms$mda$end*12-1 | time == parms$mda$end*12+24) %>% #pre-control:1y before start, #soon before last round, #2ys after last round
-  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>% #time == parms$mda$start*12-12
+  filter(time == parms$mda$start*12-36 | time == parms$mda$end*12-1 | time == parms$mda$end*12+60) %>% #pre-control:1y before start, #soon before last round, #2ys after last round
+  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>% 
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev),
             PHI = mean(Heggs_prev),
-            intensity = mean(avg_geom_intensity_SAC*24)) 
+            intensity = mean(avg_intensity_SAC*24)) 
 
 ggplot(data_avg3, aes(x = intensity, y = eggs_prev_SAC*100, 
                       group = interaction(time, Immunity, Snails, DDF))) +
-  geom_point(aes(colour = as.factor(time))) +
-  facet_grid(Endemicity ~ . , labeller = labeller(.rows = label_both, .cols = label_both), 
-             scales = "free_y") +
+  geom_point(aes(colour = as.factor(time)), size = 3, alpha = 0.8) +
+  facet_wrap(Endemicity ~ ., nrow = 3, scales = "free", strip.position="right")+
+             #labeller = labeller(.rows = label_both, .cols = label_both)) +
   tag_facets(tag_levels = "a", position = "tr") +
-  scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n") + 
-  scale_x_continuous(name = "\n Average intensity of infection (epg)",
-                     expand = c(0, 0)) +
+  scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
+                     expand = expansion(mult = c(0, 0), 
+                                        add = c(0, 10))) + 
+  scale_x_continuous(name = "\n Average intensity of infection in SAC (epg)",
+                     expand = expansion(mult = c(0, 0), 
+                                        add = c(0, 3))) +
   expand_limits(x = 0,y = 0) +
-  theme_bw() 
+  scale_color_manual(name = "Time",
+                     labels = c("Pre-control", "Last treatment round", "After 5 years"),
+                     values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        plot.margin = margin(5, 10, 0, 10, "pt"),
+        panel.spacing = unit(1, "lines"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        #legend.key.width = unit(2, "lines"),
+        strip.text = element_text(size = 13),
+        tagger.panel.tag.text = element_text(size = 14),
+        tagger.panel.tag.background = element_blank())
 
 ###############
 #Predictions
 ################
 #Figure 4
-# setting <- paste("Sow", "func_commMDA", sep = "_")
-# res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
-#   mutate(Exposure = "Based on water contacts")
-# res_Sow$Endemicity <- factor(as.factor(res_Sow$Endemicity),
-#                              levels = c("Low", "Moderate", "High"))
+setting <- paste("Sow", "func_commMDA", sep = "_")
+res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
+  filter(Immunity != "Absent" & Snails != "Absent") %>% #Successful scenarios only 
+  filter(Endemicity == "High", Immunity == "Mild", Snails == "Mild", DDF == "Mild") %>%
+  #mutate(eliminated = ifelse(eggs_prev_SAC==0 & time==(parms$mda$end+50)*12, "Elimination", "Bounce-back")) %>%
+  mutate(Exposure = "Based on water contacts")
+res_Sow$Endemicity <- factor(as.factor(res_Sow$Endemicity),
+                             levels = c("Low", "Moderate", "High"))
+
+el_seeds <- res_Sow[which(res_Sow$eggs_prev_SAC==0 & res_Sow$time==(parms$mda$end+50)*12), "seed"]
+res_Sow <- res_Sow %>%
+  mutate(eliminated = ifelse(seed %in% el_seeds$seed, "Interruption", "Bounce-back")) 
 
 #Computing runs that reach EPHP or elimination:
+#This is to write the table
 options(digits = 1)
 res$Exposure <- factor(as.factor(res$Exposure),
                        levels = c("Model-derived function", "Based on water contacts"),
                        labels = c("a.", "b."))
 ephp <- res %>%
   filter(time==(parms$mda$end+50)*12) %>%
-  group_by(Endemicity, Snails, Immunity, DDF, Exposure) %>%
+  group_by(Snails, Immunity, DDF, Exposure, Endemicity) %>%
   summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
             eliminated = length(which(eggs_prev_SAC==0))*100/seeds) 
 table <- nice_table(ephp, options(digits = 1))
@@ -374,18 +409,19 @@ library(flextable)
 ## Imm NO - Snails NO - DDF all
 ## Imm STRONG - Snails NO - DDF all
 ## Imm NO - Snails MILD - DDF all
-res <- res_Sow %>%
-  filter((Immunity == "Absent" & Snails == "Absent") |
-           (Immunity == "Strong" & Snails == "Absent") |
-           (Immunity == "Absent" & Snails == "Strong"))
+# res <- res_Sow %>%
+#   filter((Immunity == "Absent" & Snails == "Absent") |
+#            (Immunity == "Strong" & Snails == "Absent") |
+#            (Immunity == "Absent" & Snails == "Strong"))
 #res <- filter(res, !(Immunity == "Absent" & Snails == "Absent" & DDF == "Absent"))
 
-Fig4high <- 
-  ggplot(data=filter(res, Endemicity=="Moderate" & DDF!="Mild"), 
-         aes(x=time/12, y=eggs_prev_SAC*100, group = seed)) +
-  geom_line(aes(colour = DDF), size = 1, alpha = 0.1) +
-  facet_grid(Immunity+Snails ~ DDF, labeller = labeller(.rows = label_both, .cols = label_both)) +
-    tag_facets(tag_levels = "a", position = "tr") +
+Fig4 <- 
+  ggplot(data = res_Sow, aes(x=time/12, y=eggs_prev_SAC*100, 
+         group = interaction(seed, Endemicity, Immunity, Snails, DDF))) +
+  geom_line(aes(colour = eliminated), alpha = 0.3) +
+    geom_line(data = filter(res_Sow, eliminated == "Interruption"), colour = hue_pal()(2)[2], linewidth = 1) +
+  #facet_grid(Immunity ~ DDF, labeller = labeller(.rows = label_both, .cols = label_both)) +
+   # tag_facets(tag_levels = "a", position = "tr") +
     scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
                        #breaks = seq(0, 100, 20),
                        #limits = c(0, 80),
@@ -396,22 +432,24 @@ Fig4high <-
                        labels = seq(-10, 50, 10),
                        #limits = c(0, 1200),
                        expand = c(0, 0)) +
-    coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+50)) +
+    coord_cartesian(xlim=c(parms$mda$end-11, parms$mda$end+30)) +
     expand_limits(x = 0,y = 0) +
-    scale_color_manual(values = c("Absent" = hue_pal()(3)[1], "Strong" = hue_pal()(3)[3])) +
+    scale_color_discrete(name = "") +
     guides(color = guide_legend(override.aes = list(alpha = 1))) +
     theme_bw() +
-    theme(legend.position="bottom",
+    theme(legend.position=c(0.8, 0.85),
           plot.margin = margin(5, 10, 0, 10, "pt"),
           panel.spacing = unit(1.5, "lines"),
           legend.key.width = unit(2, "lines"),
           strip.text = element_text(size = 13),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
           tagger.panel.tag.text = element_text(size = 14),
           tagger.panel.tag.background = element_blank())
 
-tiff(paste("Plots/Manuscript/Fig4high.tif", sep = ""), 
-     width=12, height=12, units = "in", res = 300)
-Fig4high 
+tiff(paste("Plots/Manuscript/Fig4.3.tif", sep = ""), 
+     compression = "lzw", width=8, height=6, units = "in", res = 300)
+Fig4
 dev.off()
 
 #############
