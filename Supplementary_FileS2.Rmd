@@ -13,7 +13,7 @@ rm(list = ls())
 .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE,
-                      fig.width=12, fig.height=12, dpi = 600)
+                      fig.width=12, fig.height=10, dpi = 600)
 ```
 
 ```{r setting, echo=FALSE, include=FALSE}
@@ -96,11 +96,11 @@ setting <- paste(exposure, "func", sep = "_")
 #Mean intensity
 eggs <- function(x){
 ggplot(filter(data_toplot, Endemicity == x),
-       aes(x=avg_age_group, y=epg_mean, group = Immunity))+
+       aes(x=avg_age_group, y=epg_mean, group = Humans))+
   #geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
-  geom_line(aes(linetype = Immunity, colour = DDF), size = 1) +
+  geom_line(aes(colour = Humans), size = 1) +
   labs(title = paste(x, "endemicity setting", sep = " ")) +
-  facet_grid(Snails ~ DDF, labeller = labeller(.rows = label_both, .cols = label_both), 
+  facet_grid(Snails ~ Worms, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
   tag_facets(tag_levels = "a", position = "tr") +
   scale_y_continuous(name = "Egg counts (epg) \n",
@@ -112,15 +112,17 @@ ggplot(filter(data_toplot, Endemicity == x),
                      limits = c(0, 70),
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0) +
-  guides(shape = "none", colour = "none") +
-  #scale_color_manual(values = c("Mild" = hue_pal()(3)[2])) +
-  scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
+  #guides(shape = "none", colour = "none") +
+  scale_colour_manual(name = "Humans",
+                     values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
+  # scale_linetype_manual(values = c("Absent" = "solid", "Mild" = "dotted", "Strong" = "dashed")) +
   theme_bw() +
   theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1.5, "lines"),
         legend.key.width = unit(2, "lines"),
         strip.text = element_text(size = 13),
+        text=element_text(size=14),
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
 }
@@ -135,6 +137,10 @@ The figures in this document display the age-intensity profiles for the complete
 ```{r age-intensity plot ICL, echo=FALSE}
 load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_ICL_SupplFig1.RData"))
 
+data_toplot <- data_toplot %>% 
+  rename(Worms = DDF,
+         Humans = Immunity)
+
 eggs(x="Low")
 
 eggs(x="Moderate")
@@ -146,6 +152,10 @@ eggs(x="High")
 
 ```{r age-intensity plot Sow, echo=FALSE}
 load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_Sow_SupplFig1.RData"))
+
+data_toplot <- data_toplot %>% 
+  rename(Worms = DDF,
+         Humans = Immunity)
 
 eggs(x="Low")
 

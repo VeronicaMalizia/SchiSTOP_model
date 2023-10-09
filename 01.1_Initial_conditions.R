@@ -28,6 +28,7 @@ init <- list(# Human cohort
                                         jw2 = 0,
                                         jw3 = 0,
                                         cum_dwp = 0,
+                                        mu = 0,
                                         ec = 0),
                             #Initial cumulative exposure
                             #cum_exp = sum(Age_profile_exp(cohort$age)$y * cohort$Ind_sus),

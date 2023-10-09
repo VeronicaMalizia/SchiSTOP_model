@@ -123,6 +123,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                    jw2 = 0,
                                                    jw3 = 0,
                                                    cum_dwp = 0,
+                                                   mu = 0,
                                                    ec = 0))
                        ever_lived <- ever_lived+births
                        
@@ -208,12 +209,12 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        # 24 is the conversion factor from egg counts and epg
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
-                       mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
+                       pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
                        
-                       eggs <- round(mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
+                       eggs <- round(pop$mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
-                       pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=mu)  
+                       pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu)  
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
@@ -313,7 +314,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        if(write.output == TRUE){
                          if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
                            ind_file <- rbind(ind_file,
-                                             select(pop, ID, age, age_group, rate, wp1, wp2, wp3, ec, cum_dwp) %>%
+                                             select(pop, ID, age, age_group, rate, wp1, wp2, wp3, ec, mu, cum_dwp) %>%
                                                mutate(tot_wp = wp1+wp2+wp3,
                                                       time = t/12, #years
                                                       seed = scen$seed,

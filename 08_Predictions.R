@@ -35,12 +35,12 @@ setting <- paste(exposure, "func", sep = "")
 #Load collated results and produce multi-panel plots
 pop.output.dir <- file.path(source.dir, "Output/Population")
 
-setting <- paste("ICL", "func", sep = "_")
+setting <- paste("ICL", "func_commMDA", sep = "_")
 res_ICL <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
   #filter(time/12 > (parms$mda$end - 20) & time/12 < (parms$mda$end + 20)) %>%
   mutate(Exposure = "Model-derived function")
 
-setting <- paste("Sow", "func", sep = "_")
+setting <- paste("Sow", "func_commMDA", sep = "_")
 res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
   #filter(time/12 > (parms$mda$end - 20) & time/12 < (parms$mda$end + 20)) %>%
   mutate(Exposure = "Based on water contacts")
@@ -50,6 +50,19 @@ res$Exposure <- factor(as.factor(res$Exposure),
                             levels = c("Model-derived function", "Based on water contacts"))
 res$Endemicity <- factor(as.factor(res$Endemicity),
                               levels = c("Low", "Moderate", "High"))
+
+# Averaging population data
+data_avg <- res %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
+  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
+            eggs_prev_tot = mean(eggs_prev),
+            PHI = mean(Heggs_prev),
+            miracidiae = mean(miracidiae),
+            cercariae = mean(cercariae),
+            snail_inf = mean(inf_snail),
+            snail_exp = mean(exp_snail),
+            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail))) 
+
 
 save(res, data_avg, file = "Population data for Figure2&3.RData")
 load("Population data for Figure2&3.RData")
@@ -70,7 +83,7 @@ if(n_faided>0){
 #Load individual data
 #####################
 #Age-intensity profiles
-exposure = "ICL"
+exposure = "Sow"
 setting <- paste(exposure, "func", sep = "_")
 ind.output.dir <- file.path(source.dir, paste("Output/Individual/All_SACMDA/", setting, sep = "")) 
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
@@ -80,19 +93,6 @@ data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
   bind_rows %>%
   dplyr::filter(time == parms$mda$start-9) #, # | time == parms$mda$end+1)
                 #Snails == "Mild" & DDF == "Mild") 
-
-
-# Averaging population data
-data_avg <- res %>%
-  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            eggs_prev_tot = mean(eggs_prev),
-            PHI = mean(Heggs_prev),
-            miracidiae = mean(miracidiae),
-            cercariae = mean(cercariae),
-            snail_inf = mean(inf_snail),
-            snail_exp = mean(exp_snail),
-            snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail))) 
 
 #Averaging individual data
 age_out <- data_all %>% 
@@ -164,7 +164,8 @@ eggs <-
 ggplot(data_toplot)+ #group = Immunity
   #geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
   #geom_line(aes(linetype = Immunity), colour = hue_pal()(3)[2], size = 1) +
-  geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
+  geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, 
+                group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
   geom_line(data = Fulford.data,
             aes(x=Age, y=Eggs, linetype = Village), colour = "black") +
   geom_line(data = reference,
@@ -184,7 +185,7 @@ ggplot(data_toplot)+ #group = Immunity
                      expand = c(0, 0)) +
   expand_limits(x = 0,y = 0) +
   #guides(shape = "none", colour = "none") +
-  scale_color_manual(name = "Immunity",
+  scale_color_manual(name = "Human-level regulation",
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
   #scale_linetype_manual(values = c("dotdashed", "dotted", "dashed")) +
   theme_bw() +
@@ -201,6 +202,32 @@ tiff(paste("Plots/Manuscript/Fig1.2.tif", sep = ""),
 eggs
 dev.off()
 
+#Check worms
+#worms <- 
+  ggplot(filter(data_toplot, Exposure == "Based on water contacts")) +   
+    geom_line(aes(x=avg_age_group, y=wp_mean, group = interaction(Immunity, DDF, Snails), 
+                  colour = Snails)) +
+    facet_grid(Endemicity ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), 
+               scales = "free_y") + 
+    tag_facets(tag_levels = "a", position = "tr") +
+    scale_y_continuous(name = "Average worm load \n",
+                       expand = expansion(mult = c(0, 0.1), 
+                                          add = c(0, 0))) +
+    scale_x_continuous(name = "\n Age [years]",
+                       breaks = seq(0, 80, 10),
+                       limits = c(0, 70),
+                       expand = c(0, 0)) +
+    expand_limits(x = 0,y = 0) +
+    scale_color_manual(name = "DDF",
+                       values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
+    theme_bw() +
+    theme(legend.position="bottom",
+          plot.margin = margin(5, 10, 0, 10, "pt"),
+          panel.spacing = unit(1.5, "lines"),
+          legend.key.width = unit(2, "lines"),
+          strip.text = element_text(size = 13),
+          tagger.panel.tag.text = element_text(size = 14),
+          tagger.panel.tag.background = element_blank()) 
 
 ##############
 # Observed pattern
@@ -262,7 +289,8 @@ reference <- res %>%
   filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function") %>%
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            eggs_prev_tot = mean(eggs_prev)) 
+            eggs_prev_tot = mean(eggs_prev)) %>%
+  rename(Humans = Immunity)
 
 # Successful scenarios
 # res3 <- res %>%
@@ -280,15 +308,15 @@ data_avg2 <- res2 %>%
                                Immunity == "Mild" ~ "Absent / Mild",
                                Immunity == "Strong" ~ "Strong"))
 
-Fig3 <- 
-  ggplot(data_avg2, aes(x=time/12, eggs_prev_SAC*100)) +
+#Fig3 <- 
+  ggplot(rename(data_avg2, Humans = Immunity), aes(x=time/12, eggs_prev_SAC*100)) +
   # geom_line(data = res,
   #           aes(group = interaction(DDF, seed, Immunity), colour = DDF), alpha = 0.03) +
   #geom_line(aes(linetype = Immunity, colour = DDF), size = 1) +
-  geom_line(aes(group = interaction(DDF, Snails, Immunity, Exposure, Endemicity), 
+  geom_line(aes(group = interaction(DDF, Snails, Humans, Exposure, Endemicity), 
                 colour = interaction(Snails2, Exposure))) +
   geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
-  facet_grid(Endemicity ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both), 
+  facet_grid(Endemicity ~ Humans, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
   tag_facets(tag_levels = "a", position = "tr") +
   scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
@@ -304,7 +332,7 @@ Fig3 <-
   coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
   expand_limits(x = 0,y = 0) +
   #scale_linetype_manual(values = c("Absent" = "solid", "Strong" = "dashed")) +
-  scale_color_manual(name = "(Regulation in snails, Exposure)",
+  scale_color_manual(name = "(Snails, Exposure)",
                      labels = c("(Mild / Strong, Model-derived function)", "(Absent, Based on water contacts)", "(Mild / Strong, Based on water contacts)"),
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
   theme_bw() +
@@ -313,6 +341,7 @@ Fig3 <-
         panel.spacing = unit(1.5, "lines"),
         legend.key.width = unit(2, "lines"),
         strip.text = element_text(size = 13),
+        text = element_text(size = 14),
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
 
@@ -333,7 +362,7 @@ res$Endemicity <- factor(as.factor(res$Endemicity),
 
 # Averaging population data
 data_avg3 <- res %>%
-  filter(time == parms$mda$start*12-36 | time == parms$mda$end*12-1 | time == parms$mda$end*12+60) %>% #pre-control:1y before start, #soon before last round, #2ys after last round
+  filter(time == parms$mda$start*12-36 | time == parms$mda$end*12+12 | time == parms$mda$end*12+60) %>% #pre-control:1y before start, #soon before last round, #2ys after last round
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>% 
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev),
@@ -354,7 +383,7 @@ ggplot(data_avg3, aes(x = intensity, y = eggs_prev_SAC*100,
                                         add = c(0, 3))) +
   expand_limits(x = 0,y = 0) +
   scale_color_manual(name = "Time",
-                     labels = c("Pre-control", "Last treatment round", "After 5 years"),
+                     labels = c("Pre-control", "After 1 year", "After 5 years"),
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
   theme_bw() +
   theme(legend.position="bottom",
@@ -374,27 +403,33 @@ ggplot(data_avg3, aes(x = intensity, y = eggs_prev_SAC*100,
 setting <- paste("Sow", "func_commMDA", sep = "_")
 res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
   filter(Immunity != "Absent" & Snails != "Absent") %>% #Successful scenarios only 
-  filter(Endemicity == "High", Immunity == "Mild", Snails == "Mild", DDF == "Mild") %>%
-  #mutate(eliminated = ifelse(eggs_prev_SAC==0 & time==(parms$mda$end+50)*12, "Elimination", "Bounce-back")) %>%
+  filter(Endemicity == "Moderate", Immunity == "Mild", Snails == "Mild", DDF == "Absent") %>%
   mutate(Exposure = "Based on water contacts")
 res_Sow$Endemicity <- factor(as.factor(res_Sow$Endemicity),
                              levels = c("Low", "Moderate", "High"))
 
 el_seeds <- res_Sow[which(res_Sow$eggs_prev_SAC==0 & res_Sow$time==(parms$mda$end+50)*12), "seed"]
 res_Sow <- res_Sow %>%
+  # group_by(Immunity, Endemicity, Snails, DDF) %>%
+  # mutate(el_run = ifelse(eggs_prev_SAC==0 & time==(parms$mda$end+50)*12, seed, F)) #%>%
   mutate(eliminated = ifelse(seed %in% el_seeds$seed, "Interruption", "Bounce-back")) 
 
 #Computing runs that reach EPHP or elimination:
 #This is to write the table
 options(digits = 1)
-res$Exposure <- factor(as.factor(res$Exposure),
-                       levels = c("Model-derived function", "Based on water contacts"),
-                       labels = c("a.", "b."))
+# res$Exposure <- factor(as.factor(res$Exposure),
+#                        levels = c("Model-derived function", "Based on water contacts"),
+#                        labels = c("MD", "WC"))
 ephp <- res %>%
   filter(time==(parms$mda$end+50)*12) %>%
   group_by(Snails, Immunity, DDF, Exposure, Endemicity) %>%
   summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
-            eliminated = length(which(eggs_prev_SAC==0))*100/seeds) 
+            eliminated = length(which(eggs_prev_SAC==0))*100/seeds)
+ephp <- ephp %>%
+  unite(Snails_DDF, c(Snails,DDF), sep = ", ")
+ephp$Endemicity <- factor(as.factor(ephp$Endemicity),
+                             levels = c("Low", "Moderate", "High"))
+
 table <- nice_table(ephp, options(digits = 1))
 print(table, preview ="docx")
 
@@ -415,12 +450,13 @@ library(flextable)
 #            (Immunity == "Absent" & Snails == "Strong"))
 #res <- filter(res, !(Immunity == "Absent" & Snails == "Absent" & DDF == "Absent"))
 
-Fig4 <- 
-  ggplot(data = res_Sow, aes(x=time/12, y=eggs_prev_SAC*100, 
+#Fig4 <- 
+  ggplot(data = res_Sow,
+         aes(x=time/12, y=eggs_prev_SAC*100, 
          group = interaction(seed, Endemicity, Immunity, Snails, DDF))) +
-  geom_line(aes(colour = eliminated), alpha = 0.3) +
-    geom_line(data = filter(res_Sow, eliminated == "Interruption"), colour = hue_pal()(2)[2], linewidth = 1) +
-  #facet_grid(Immunity ~ DDF, labeller = labeller(.rows = label_both, .cols = label_both)) +
+    #geom_line(aes(colour = eliminated), alpha = 0.3) +
+    geom_line(data = filter(res_Sow, eliminated == "Interruption"), colour = hue_pal()(2)[2]) +
+    facet_grid(DDF ~ Endemicity, labeller = labeller(.rows = label_both, .cols = label_both)) +
    # tag_facets(tag_levels = "a", position = "tr") +
     scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
                        #breaks = seq(0, 100, 20),
@@ -432,7 +468,8 @@ Fig4 <-
                        labels = seq(-10, 50, 10),
                        #limits = c(0, 1200),
                        expand = c(0, 0)) +
-    coord_cartesian(xlim=c(parms$mda$end-11, parms$mda$end+30)) +
+    #coord_cartesian(xlim=c(parms$mda$end-11, parms$mda$end+50)) +
+    #coord_cartesian(ylim=c(0, 10)) +
     expand_limits(x = 0,y = 0) +
     scale_color_discrete(name = "") +
     guides(color = guide_legend(override.aes = list(alpha = 1))) +
@@ -482,3 +519,48 @@ ggplot(data_avg, aes(x=time/12, eggs_prev_SAC*100)) +
         strip.text = element_text(size = 13),
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
+
+
+#############
+# Check worms in SAC pre- and post-MDA, Sow func, with and without DDF
+#############
+data_pre <- data_all %>%
+  filter(Snails == "Mild", Immunity == "Mild", Endemicity == "High") %>%
+  filter(age >= 5 & age <= 15)
+
+data <- data_pre
+summary(data$tot_wp[which(data$DDF == "Absent")])
+summary(data$tot_wp[which(data$DDF == "Mild")])
+summary(data$tot_wp[which(data$DDF == "Strong")])
+
+#This is at time 141 (soon before MDA)
+# > summary(data$tot_wp[which(data$DDF == "Absent")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      22      95     109    2151 
+# > summary(data$tot_wp[which(data$DDF == "Mild")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      22      92     109    1645 
+# > summary(data$tot_wp[which(data$DDF == "Strong")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      23      92     109    2489 
+
+#This is at time 191 (after MDA)
+# > summary(data$tot_wp[which(data$DDF == "Absent")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      28     107     131    1956 
+# > summary(data$tot_wp[which(data$DDF == "Mild")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      26     107     122    1737 
+# > summary(data$tot_wp[which(data$DDF == "Strong")])
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0       2      24      98     116    1564 
+
+bind_rows(mutate(data_pre, Control = "Pre"),
+          mutate(data_post, Control = "Post")) %>%
+ggplot(aes(x = DDF, y = tot_wp)) +
+  #geom_density() +
+  geom_violin(aes(colour = Control)) +
+  #facet_grid(DDF ~ .) +
+  #scale_y_log10() +
+  theme_bw()
+  

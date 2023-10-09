@@ -32,7 +32,6 @@ stoch_scenarios <- expand.grid(list(seed = 1:seeds,
 
 #Load tuned transmission parameters (zetas) for the scenarios above (attention to the order!) 
 #Transmission parameters for tuning endemicity
-options("scipen" = 10)
 zetas <- read_excel(paste("Zetas_", exposure, "_func.xlsx", sep = "")) 
 #Remove scenario not at equilibrium
 stoch_scenarios <- mutate(stoch_scenarios, 
@@ -42,7 +41,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   #filter(equilibrium==TRUE) %>%
   #filter(imm_strength == "Absent" & snails == "Absent" & DDF_strength == "Absent") %>% 
-  filter(imm_strength == "Strong" & endem == "Low" & snails == "Absent") %>%
+  #filter(imm_strength == "Mild" & endem == "High" & snails == "Mild") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
@@ -50,7 +49,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                                       endem == "Moderate" ~ 2,
                                       endem == "High" ~ 2))
 
-setting <- paste(exposure, "func", sep = "_")
+setting <- paste(exposure, "func_CHECKHIGH", sep = "_")
 
 ################
 #Set output directory to save results
