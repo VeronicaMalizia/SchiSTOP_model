@@ -125,14 +125,14 @@ if(n_faided>0){
 
 data_avg <- res %>%
   group_by(time, Immunity, Snails, DDF, Endemicity) %>%
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
+  dplyr::summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev),
             PHI = mean(Heggs_prev_SAC),
             snail_inf = mean(inf_snail),
             snail_exp = mean(exp_snail),
             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
-ggplot(data=data_avg, aes(x=time/12)) +
+ggplot(data=data_avg, aes(x=time/12, group=interaction(DDF, Endemicity))) +
   # geom_line(data = filter(res, Endemicity == "Low"), 
   #           aes(y=eggs_prev_SAC*100,
   #               group = interaction(DDF, seed),

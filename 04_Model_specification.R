@@ -17,8 +17,9 @@ library(parallelly)
 writeLines(c(""), "Sink.txt") #initiate log file
 #writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(availableCores(omit = 1), nrow(stoch_scenarios)))
-clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
+cluster <- makeCluster(min(detectCores(logical = F), nrow(stoch_scenarios)))
+clusterEvalQ(cluster, .libPaths(c("C:\\Users\\NTD-Computing\\Bureaublad\\Veronica\\R-4.1.2\\library",.libPaths())))
+#clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
 results <- foreach(k = 1:nrow(stoch_scenarios),
@@ -267,15 +268,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                        out2$E[nrow(out2)],
                                        out2$I[nrow(out2)],
                                        out2$C[nrow(out2)])
-                         if(out2$E[nrow(out2)]<1e-20)
+                         if(out2$E[nrow(out2)]<1e-10)
                            newstart[2] <- 0
-                         if(out2$I[nrow(out2)]<1e-20)
+                         if(out2$I[nrow(out2)]<1e-10)
                            newstart[3] <- 0
                          
                          #Cercarial production 
                          cercariae[t] <- out2$C[nrow(out2)]
                          
-                         if(out2$C[nrow(out2)]<1e-20){
+                         if(out2$C[nrow(out2)]<1e-10){
                            newstart[4] <- 0
                            cercariae[t] <- 0
                          }
