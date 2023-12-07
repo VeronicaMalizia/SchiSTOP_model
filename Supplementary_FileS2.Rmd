@@ -3,8 +3,8 @@ title: "Supplementary_FileS2"
 author: "Veronica Malizia"
 date: '2023-07-26'
 output:
-  word_document: default
   pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -130,9 +130,9 @@ ggplot(filter(data_toplot, Endemicity == x),
 
 # Age-intensity profiles
 
-## Assumption for the age-exposure function: "Model-derived function"
+**Age-intensity profiles for the complete set of modelling scenarios.** For each choice of the age-exposure function and each endemicity setting (titles), single panels refer to a fixed combination of the assumptions of worm-level regulation (Worms, columns) and snail-level regulation (Snails, rows). A single panel shows the simulated egg counts on the y-axis (mean epg, over age group and 100 stochastic realizations of the model) by age on the x-axis. The age-intensity profiles are displayed at pre-control, by varying the degree of regulating mechanism in humans (colours). Age bins are defined as to all be equally sized.
 
-The figures in this document display the age-intensity profiles for the complete set of modelling scenarios. For each choice of the age-exposure function and each endemicity setting (titles), single panels refer to a fixed combination of the assumptions of density-dependent fecundity (DDF, columns) and snail regulation (rows). A single panel shows the simulated egg counts on the y-axes (mean epg, over age group and 30 stochastic realizations of the model) by age on the x-axes. The age-intensity profiles are displayed at pre-control, by varying the intensity of immunity mechanism (line type). Age bins are defined as to all be equal sized. 
+## 1. Assumption for the age-exposure function: "Literature-based"
 
 ```{r age-intensity plot ICL, echo=FALSE}
 load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_ICL_SupplFig1.RData"))
@@ -148,7 +148,7 @@ eggs(x="Moderate")
 eggs(x="High")
 ```
 
-## Assumption for the age-exposure function: "Based on water contacts"
+## 2. Assumption for the age-exposure function: "Based on water contacts"
 
 ```{r age-intensity plot Sow, echo=FALSE}
 load(file.path(source.dir, "Output/Individual/All_SACMDA/Data_Sow_SupplFig1.RData"))
