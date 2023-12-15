@@ -1,0 +1,16 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: '"Schistosoma mansoni transmission model"'
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Veronica
+    family-names: Malizia
+    email: Veronica.Malizia@radboudumc.nl
+    affiliation: 'Radboud UMC, Nijmegen, The Netherlands'
+    orcid: 'https://orcid.org/0000-0002-8161-4092'
+date-released: '2023-12-15'
