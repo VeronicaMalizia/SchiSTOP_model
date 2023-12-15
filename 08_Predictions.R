@@ -1,3 +1,6 @@
+#This script prepares data for plotting with PLOTTING_CODE.R
+#and computes predictions for Results
+
 rm(list = ls())
 
 .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
@@ -10,12 +13,14 @@ library(rstudioapi)
 library(scales)
 #library(plotly)
 library(tagger)
+#to install the package above run: devtools::install_github("eliocamp/tagger")
 library(rempsyc)
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
 #"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
+
 
 #Load functions
 source("01_Handy_functions.R")
@@ -66,7 +71,7 @@ data_avg <- res %>%
 
 
 save(res, data_avg, file = "Population data for Figure2&3_100seeds.RData")
-load("Population data for Figure2&3.RData")
+load("Population data for Figure2&3_100seeds.RData")
 
 #Computing faded-out runs at pre-control (149 ys is soon before MDA)
 faided <- res %>%
@@ -143,7 +148,8 @@ data_toplot_ind$Endemicity <- factor(as.factor(data_toplot_ind$Endemicity),
 
 load("Individual data for Figure1_ALL.RData")
 data_toplot <- data_toplot_ind %>%
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium
+  filter(!(Snails == "Absent" & Exposure == "Model-derived function")) %>% #No equilibrium
+  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
 data_toplot$Endemicity <- factor(as.factor(data_toplot$Endemicity),
                                      levels = c("Low", "Moderate", "High"))
 
@@ -159,22 +165,20 @@ Fulford.data$Endemicity <- factor(as.factor(Fulford.data$Endemicity),
 
 ##ICL reference
 reference <- data_toplot_ind %>%
-  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function")
+  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function") %>%
+  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
 
 eggs <- 
 ggplot(data_toplot)+ #group = Immunity
-  #geom_pointrange(aes(ymin=epg_lo, ymax=epg_hi, colour = DDF, shape = Immunity)) +
-  #geom_line(aes(linetype = Immunity), colour = hue_pal()(3)[2], size = 1) +
   geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, 
                 group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
   geom_line(data = Fulford.data,
             aes(x=Age, y=Eggs, linetype = Village), colour = "black") +
   geom_line(data = reference,
             aes(x=avg_age_group, y=(geom_epg_mean-1)*24), colour = "grey40", linewidth = 1) +
-  #labs(title = paste(endem, "endemicity setting", sep = " ")) +
   facet_grid(Endemicity ~ Exposure, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
-  tag_facets(tag_levels = "a", position = "tr") +
+  tag_facets(tag_levels = "A", position = "tr") +
   scale_y_continuous(name = "Average egg per gram of feaces \n (geometric mean)",
                      #breaks = seq(0, 10000, 200),
                      #limits = c(0.5, 8000), #3000 l-m 8000 high
@@ -188,18 +192,17 @@ ggplot(data_toplot)+ #group = Immunity
   #guides(shape = "none", colour = "none") +
   scale_color_manual(name = "Human-level regulation",
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
-  #scale_linetype_manual(values = c("dotdashed", "dotted", "dashed")) +
-  theme_bw() +
+  theme_bw(base_size = 16) +
   theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1.5, "lines"),
         legend.key.width = unit(2, "lines"),
-        strip.text = element_text(size = 13),
+        strip.text = element_text(size = 14),
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank()) 
 
-tiff(paste("Plots/Manuscript/Fig1.2.tif", sep = ""), 
-     compression="lzw", width=12, height=12, units = "in", res = 600)
+tiff(paste("Plots/Manuscript/Fig 2.tif", sep = ""), 
+     compression="lzw", width=12, height=12, units = "in", res = 300)
 eggs
 dev.off()
 
@@ -234,10 +237,6 @@ dev.off()
 # Observed pattern
 ##############
 res2 <- res %>%
-  #filter(Endemicity == "Moderate", Snails != "Strong", Immunity != "Mild", DDF != "Strong") %>%
-  #filter(!(Exposure == "Model-derived function" & Snails == "Absent" & Immunity == "Absent" & DDF == "Mild")) %>%
-  #filter(!(Exposure == "Model-derived function" & Snails == "Mild" & Immunity == "Absent" & DDF == "Absent"))
-  #filter(!(Exposure == "Based on water contacts" & Immunity == "Absent")) %>% #No age-profiles
   filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium (DDF strong no equilibrium, but reference)
 
 reference <- res %>%
@@ -246,7 +245,9 @@ reference <- res %>%
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev)) %>%
-  rename(Humans = Immunity)
+  rename(Human_level = Immunity) %>%
+  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
+
 
 # Successful scenarios
 # res3 <- res %>%
@@ -262,19 +263,17 @@ data_avg2 <- res2 %>%
                              Snails == "Strong" ~ "Mild / Strong")) %>%
   mutate(Immunity2 = case_when(Immunity == "Absent" ~ "Absent / Mild",
                                Immunity == "Mild" ~ "Absent / Mild",
-                               Immunity == "Strong" ~ "Strong"))
+                               Immunity == "Strong" ~ "Strong")) %>%
+  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
 
 Fig3 <- 
-  ggplot(rename(data_avg2, Humans = Immunity), aes(x=time/12, eggs_prev_SAC*100)) +
-  # geom_line(data = res,
-  #           aes(group = interaction(DDF, seed, Immunity), colour = DDF), alpha = 0.03) +
-  #geom_line(aes(linetype = Immunity, colour = DDF), size = 1) +
-  geom_line(aes(group = interaction(DDF, Snails, Humans, Exposure, Endemicity), 
+  ggplot(rename(data_avg2, Human_level = Immunity), aes(x=time/12, eggs_prev_SAC*100)) +
+  geom_line(aes(group = interaction(DDF, Snails, Human_level, Exposure, Endemicity), 
                 colour = interaction(Snails2, Exposure))) +
   geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
-  facet_grid(Endemicity ~ Humans, labeller = labeller(.rows = label_both, .cols = label_both), 
+  facet_grid(Endemicity ~ Human_level, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
-  tag_facets(tag_levels = "a", position = "tr") +
+  tag_facets(tag_levels = "A", position = "tr") +
   scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
                      #breaks = c(10, 30, 60),
                      #limits = c(0, 80),
@@ -288,21 +287,21 @@ Fig3 <-
   coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
   expand_limits(x = 0,y = 0) +
   #scale_linetype_manual(values = c("Absent" = "solid", "Strong" = "dashed")) +
-  scale_color_manual(name = "(Snails, Exposure)",
-                     labels = c("(Mild / Strong, Model-derived function)", "(Absent, Based on water contacts)", "(Mild / Strong, Based on water contacts)"),
+  scale_color_manual(name = "(Snail-level, Exposure)",
+                     labels = c("(Mild / Strong, Model-based)", "(Absent, Water-contacts-based)", "(Mild / Strong, Water-contacts-based)"),
                      values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
-  theme_bw() +
+  theme_bw(base_size = 16) +
   theme(legend.position="bottom",
         plot.margin = margin(5, 10, 0, 10, "pt"),
         panel.spacing = unit(1.5, "lines"),
         legend.key.width = unit(2, "lines"),
         strip.text = element_text(size = 13),
-        text = element_text(size = 14),
+        #text = element_text(size = 14),
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
 
-tiff(paste("Plots/Manuscript/Fig2.tif", sep = ""), 
-     compression = "lzw", width=12, height=10, units = "in", res = 300)
+tiff(paste("Plots/Manuscript/Fig 3.tif", sep = ""), 
+     compression = "lzw", width=13, height=12, units = "in", res = 300)
 Fig3
 dev.off()
 
@@ -406,7 +405,7 @@ library(flextable)
 #            (Immunity == "Absent" & Snails == "Strong"))
 #res <- filter(res, !(Immunity == "Absent" & Snails == "Absent" & DDF == "Absent"))
 
-#Fig4 <- 
+Fig4 <- 
   ggplot(data = res_Sow,
          aes(x=time/12, y=eggs_prev_SAC*100, 
          group = interaction(seed, Endemicity, Immunity, Snails, DDF))) +
