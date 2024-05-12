@@ -47,27 +47,9 @@ table(cohort$sex)
 
 #Load functions
 source("01_Handy_functions.R")
-#If you want to use Water contact data (duration):
-# age_groups <- c(0, 10, 20, 150)
-# exposure_rates <- c(0.62, 1, 0.51, 0.51) #Relative Age-specific exposure (minutes/person)
-#(frequency)
-#exposure_rates <- c(0.75, 1, 0.50, 0.50) #Relative Age-specific exposure (activity/person)
 
 ##Load parameters
 source("02_Parameters_Smansoni.R")
-
-#Check age-exposure(s) and contribution
-# plot(Age_profile_exp(parms$exposure$ICL_derived$ages, 
-#                      parms$exposure$ICL_derived$exp, x=0:80, 
-#                      method = parms$exposure$ICL_derived$method), 
-#      xlim = c(0, 100), ylim = c(0, 1), 
-#      type = 's', xlab = "Age", ylab = "Relative exposure")
-# lines(Age_profile_exp(parms$exposure$Sow_derived$ages, 
-#                       parms$exposure$Sow_derived$exp, x=c(0,80), 
-#                       method = parms$exposure$Sow_derived$method), type = 'l',col = "dark green")
-# abline(v = c(5, 15), col = 'red')
-# #lines(approx(x=c(0, 5, 10, 16, 100), y=c(0.01, 0.61, 1, 0.12, 0), method = "linear"), type = 'l', col='red')
-# lines(approx(x=c(0, 10, 200), y=c(1, 1, 1), method = "linear"), col = "brown")
 
 ################
 #Initializing
@@ -105,7 +87,7 @@ if(!file.exists(pop.output.dir)){
 }
 #Collating and saving population-level output
 #Individual output is automatically saved through the simulations
-res_do <- bind_rows(results)
+res <- bind_rows(results)
 saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
                            paste(setting, ".RDS", sep = "")))
 
@@ -132,19 +114,21 @@ data_avg <- res %>%
             snail_exp = mean(exp_snail),
             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
-ggplot(data=data_avg, aes(x=time/12, group=interaction(DDF, Endemicity))) +
-  # geom_line(data = filter(res, Endemicity == "Low"), 
+#filter(data_avg, Endemicity == "Low") %>%
+data_avg %>% 
+ggplot(aes(x=time/12, group=interaction(DDF, Endemicity))) +
+  # geom_line(data = filter(res, Endemicity == "Low"),
   #           aes(y=eggs_prev_SAC*100,
   #               group = interaction(DDF, seed),
   #               colour = DDF), alpha = 0.01) +
   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
-  geom_hline(yintercept = 10) +
+  geom_hline(yintercept = 30) +
   geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
-  #geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "dotted") +
+  geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "dotted") +
   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
                      breaks = seq(0, 100, 10),
-                     #limits = c(0, 20),
+                     limits = c(0, 40),
                      expand = c(0, 0)) +
   scale_x_continuous(name = "\n Time [Years]",
                      expand = c(0, 0)) +

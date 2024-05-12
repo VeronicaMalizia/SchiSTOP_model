@@ -54,7 +54,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                                            scen$DDF_strength== "Mild" ~ alpha_mild,
                                                            scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
                      parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
-                                                       scen$DDF_strength== "Mild" ~ 0.0005,
+                                                       scen$DDF_strength== "Mild" ~ 0.00022,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
                      
                      
@@ -186,9 +186,10 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        killed_worms3 <- 0
                        if(t %in% c(12*seq(parms$mda$start, parms$mda$end, parms$mda$frequency))){
                          target <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi)
+                         compliers <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi & pop$complier==1)
                          fr_compliers <- sum(pop$complier[target])/length(target)
                          real_coverage <- parms$mda$coverage/fr_compliers
-                         treated <- sample(target, real_coverage*length(target)) #index of individuals
+                         treated <- sample(compliers, real_coverage*length(compliers)) #index of individuals
                          n_treated <- length(treated)
                          #Killing of worms in the three age baskets:
                          killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
@@ -210,7 +211,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        # 24 is the conversion factor from egg counts and epg
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
-                       pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp/2) 
+                       pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp) 
                        
                        eggs <- round(pop$mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        

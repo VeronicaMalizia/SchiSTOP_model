@@ -1,7 +1,7 @@
 T <- 300 #number of years simulated
 seeds <- 30
 fr <- 10 #frequency for printing to file the individual output [years]
-write.output <- FALSE #disable individual output for grid search (saving time)
+write.output <- TRUE #disable individual output for grid search (saving time)
 
 ################
 #SETTING THE MODELLING SCENARIO: limiting mechanism
@@ -17,11 +17,9 @@ parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
-#Endemicity
-#endem <- "High"
 
 #Behavior in exposure
-exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
+exposure = "ICL" #Choices: "ICL" (model-derived), "Sow" (water contacts)
 
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
@@ -40,8 +38,8 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   #filter(equilibrium==TRUE) %>%
-  #filter(imm_strength == "Absent" & snails == "Absent" & DDF_strength == "Absent") %>% 
-  #filter(imm_strength == "Mild" & endem == "High" & snails == "Mild") %>%
+  filter(imm_strength == "Mild" & snails == "Strong") %>% 
+  filter(endem == "Low") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
@@ -49,7 +47,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                                       endem == "Moderate" ~ 2,
                                       endem == "High" ~ 2))
 
-setting <- paste(exposure, "func_CHECKHIGH", sep = "_")
+setting <- paste(exposure, "func_ICL", sep = "_")
 
 ################
 #Set output directory to save results
