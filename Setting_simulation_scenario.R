@@ -1,5 +1,5 @@
-T <- 300 #number of years simulated
-seeds <- 30
+T <- 200 #number of years simulated
+seeds <- 5
 fr <- 10 #frequency for printing to file the individual output [years]
 write.output <- TRUE #disable individual output for grid search (saving time)
 
@@ -11,8 +11,8 @@ write.output <- TRUE #disable individual output for grid search (saving time)
 
 parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  age.hi = 15,
-                 start = 150,
-                 end = 159,
+                 start = 0, #150,
+                 end = 0, #159,
                  frequency = 1, #annual
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
@@ -38,7 +38,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   #filter(equilibrium==TRUE) %>%
-  filter(imm_strength == "Mild" & snails == "Strong") %>% 
+  filter(snails != "Absent") %>% #imm_strength == "Mild" & 
   filter(endem == "Low") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,

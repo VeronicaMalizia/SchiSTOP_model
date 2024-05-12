@@ -152,43 +152,63 @@ ggplot(aes(x=time/12, group=interaction(DDF, Endemicity))) +
 ##Checks when running single scenario
 # source("06_Plotting_single_scenario.R")
 # 
-# ################
-# #Inspecting and saving plots (if desired)
-# ################
-# 
-# #Prevalence timelines
-# tiff("Plots/Modeling scenarios/IMM_mild/Prevalence_HIGHsetting.tif", width=7, height=6, units = "in", res = 300)
-# Fig1
-# dev.off()
-# 
-# #Prevalence of infected snails
-# tiff("Plots/Prevalence_snail_low.tif", width=7, height=6, units = "in", res = 300)
-# Fig2
-# dev.off()
-# 
-# Fig3
-# Fig4
-# cerc
-# mirac
-# cercVSmirac
+# data_avg <- res %>%
+#   group_by(time, Immunity, Snails, DDF, Endemicity) %>%
+#   dplyr::summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
+#             eggs_prev_tot = mean(eggs_prev),
+#             PHI = mean(Heggs_prev_SAC),
+#             snail_inf = mean(inf_snail),
+#             snail_exp = mean(exp_snail),
+#             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
 
-#cHECK DEMOGRAPHY
-data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
-                       pattern = "^Ind_out_seed", full.names = TRUE) %>% 
-  lapply(readRDS) %>%              # Store all files in list
-  #lapply(read_csv, show_col_types = F) %>%
-  bind_rows %>%
-  filter(time == 191)
-age_out <- data_all %>%
-  group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
-  summarise(pop = n())
-#Average over seeds
-age_out <- age_out %>%
-  group_by(time, age_group, Immunity, Snails, DDF) %>% #sex not for now
-  summarise(pop = mean(pop))
+# ggplot(data=data_avg, aes(x=time/12, group=interaction(DDF, Endemicity))) +
+#   # geom_line(data = filter(res, Endemicity == "Low"), 
+#   #           aes(y=eggs_prev_SAC*100,
+#   #               group = interaction(DDF, seed),
+#   #               colour = DDF), alpha = 0.01) +
+#   geom_line(aes(y=eggs_prev_SAC*100, colour = DDF), alpha = 3) +
+#   geom_hline(yintercept = 10) +
+#   geom_line(aes(y=PHI*100, colour = DDF), linetype = "longdash") +
+#   #geom_line(aes(y=snail_prev*100, colour = DDF), linetype = "dotted") +
+#   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
+#   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
+#                      breaks = seq(0, 100, 10),
+#                      #limits = c(0, 20),
+#                      expand = c(0, 0)) +
+#   scale_x_continuous(name = "\n Time [Years]",
+#                      expand = c(0, 0)) +
+#   # scale_x_continuous(name = "\n Years since last treatment round",
+#   #                    breaks = seq(parms$mda$end-10, parms$mda$end+20, 10),
+#   #                    labels = seq(-10, 20, 10),
+#   #                    #limits = c(0, 1200),
+#   #                    expand = c(0, 0)) +
+#   #coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
+#   expand_limits(x = 0,y = 0) +
+#   theme_bw() +
+#   theme(legend.position="bottom",
+#         #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5),
+#         plot.margin = margin(5, 10, 0, 10, "pt"),
+#         panel.spacing = unit(1.5, "lines"))
+# 
 
-ggplot(age_out, aes(x = as.factor(age_group), y = pop)) +
-  geom_col(aes(colour=DDF, fill=DDF), alpha = 0.7, position = "dodge") +
-  facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both))
-            
+
+#Check if demography is at equilibrium
+# data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
+#                        pattern = "^Ind_out_seed", full.names = TRUE) %>% 
+#   lapply(readRDS) %>%              # Store all files in list
+#   #lapply(read_csv, show_col_types = F) %>%
+#   bind_rows %>%
+#   filter(time == 191)
+# age_out <- data_all %>%
+#   group_by(seed, time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+#   summarise(pop = n())
+# #Average over seeds
+# age_out <- age_out %>%
+#   group_by(time, age_group, Immunity, Snails, DDF) %>% #sex not for now
+#   summarise(pop = mean(pop))
+# 
+# ggplot(age_out, aes(x = as.factor(age_group), y = pop)) +
+#   geom_col(aes(colour=DDF, fill=DDF), alpha = 0.7, position = "dodge") +
+#   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both))
+#             
             
