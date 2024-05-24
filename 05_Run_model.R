@@ -20,7 +20,7 @@ library(ggridges)
 library(foreach)
 library(doParallel)
 library(patchwork)
-library(profvis)
+#library(profvis)
 library(rstudioapi)
 library(beepr)
 

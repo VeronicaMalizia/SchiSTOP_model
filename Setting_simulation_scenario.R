@@ -38,8 +38,8 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   #filter(equilibrium==TRUE) %>%
-  filter(snails != "Absent") %>% #imm_strength == "Mild" & 
-  filter(endem == "Low") %>%
+  filter(snails == "Strong" & imm_strength == "Absent") %>%
+  filter(endem == "High") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
