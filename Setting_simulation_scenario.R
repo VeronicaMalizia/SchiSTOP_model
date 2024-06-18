@@ -1,5 +1,5 @@
-T <- 200 #number of years simulated
-seeds <- 5
+T <- 300 #number of years simulated
+seeds <- 100
 fr <- 10 #frequency for printing to file the individual output [years]
 write.output <- TRUE #disable individual output for grid search (saving time)
 
@@ -11,15 +11,15 @@ write.output <- TRUE #disable individual output for grid search (saving time)
 
 parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
                  age.hi = 15,
-                 start = 0, #150,
-                 end = 0, #159,
+                 start = 150,
+                 end = 159,
                  frequency = 1, #annual
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
                  efficacy = 0.86)
 
 #Behavior in exposure
-exposure = "ICL" #Choices: "ICL" (model-derived), "Sow" (water contacts)
+exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
 
 stoch_scenarios <- expand.grid(list(seed = 1:seeds,
                                     DDF_strength = c("Absent", "Mild", "Strong"),
@@ -38,8 +38,8 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   #filter(equilibrium==TRUE) %>%
-  filter(snails == "Strong" & imm_strength == "Absent") %>%
-  filter(endem == "High") %>%
+  #filter(snails == "Strong" & imm_strength == "Absent") %>%
+  #filter(endem == "High") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
@@ -47,20 +47,20 @@ stoch_scenarios <- mutate(stoch_scenarios,
                                       endem == "Moderate" ~ 2,
                                       endem == "High" ~ 2))
 
-setting <- paste(exposure, "func_ICL", sep = "_")
+setting <- paste(exposure, "func_SACmda", sep = "_")
 
 ################
 #Set output directory to save results
 ################
 #This will be the directory where the individual output is automatically saved throughout the simulations
 if(write.output == TRUE){
-  ind.output.dir <- file.path(source.dir, paste("Output/Individual/All_SACMDA/", setting, sep = "")) 
+  ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
   if(!file.exists(ind.output.dir)){
     dir.create(ind.output.dir) #Add check: this command to be run only if the directory is not existent
   }
   # if(file.exists(ind.output.dir)){
   #   #Empty the Output folder (only if needed)
-  #   unlink(file.path(ind.output.dir, "/*")) 
+  #   unlink(file.path(ind.output.dir, "/*"))
   # }
 }
 

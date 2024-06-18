@@ -32,8 +32,8 @@ source("Setting_simulation_scenario.R")
 ######### Setting #########
 
 #Behavior in exposure
-exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
-setting <- paste(exposure, "func", sep = "")
+# exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
+# setting <- paste(exposure, "func", sep = "")
 
 #######################
 #Load population output
@@ -41,22 +41,23 @@ setting <- paste(exposure, "func", sep = "")
 #Load collated results and produce multi-panel plots
 pop.output.dir <- file.path(source.dir, "Output/Population")
 
-setting <- paste("ICL", "func100seeds", sep = "_")
+setting <- paste("ICL", "func_SACmda", sep = "_")
 res_ICL <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
   #filter(time/12 > (parms$mda$end - 20) & time/12 < (parms$mda$end + 20)) %>%
-  mutate(Exposure = "Model-derived function")
+  mutate(Exposure = "Model-based function")
 
-setting <- paste("Sow", "func100seeds", sep = "_")
+setting <- paste("Sow", "func_SACmda", sep = "_")
 res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
   #filter(time/12 > (parms$mda$end - 20) & time/12 < (parms$mda$end + 20)) %>%
   mutate(Exposure = "Based on water contacts")
 
 res <- bind_rows(res_Sow, res_ICL)
 res$Exposure <- factor(as.factor(res$Exposure),
-                            levels = c("Model-derived function", "Based on water contacts"))
+                            levels = c("Model-based function", "Based on water contacts"))
 res$Endemicity <- factor(as.factor(res$Endemicity),
                               levels = c("Low", "Moderate", "High"))
 rm(res_ICL, res_Sow)
+gc()
 
 # Averaging population data
 data_avg <- res %>%
@@ -71,7 +72,7 @@ data_avg <- res %>%
             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail))) 
 
 
-save(res, data_avg, file = "Population data for Figure2&3_100seeds.RData")
+save(res, data_avg, file = "Population data for Figure2&3_10062024.RData")
 
 #Computing faded-out runs at pre-control (149 ys is soon before MDA)
 faided <- res %>%
@@ -91,8 +92,8 @@ if(n_faided>0){
 #Age-intensity profiles
 #"Sow and "ICL" datasets should be loaded separately, changing "exposure" below
 exposure = "Sow"
-setting <- paste(exposure, "func", sep = "_")
-ind.output.dir <- file.path(source.dir, paste("Output/Individual/All_SACMDA/", setting, sep = "")) 
+setting <- paste(exposure, "func_SACmda", sep = "_")
+ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
 data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
                        pattern = "^Ind_out_seed", full.names = TRUE) %>% 
   lapply(readRDS) %>%              # Store all files in list
@@ -114,7 +115,7 @@ age_out <- data_all %>%
             rate = mean(rate))
 
 #Average over seeds
-data_toplot_ICL <- age_out %>%
+data_toplot_Sow <- age_out %>%
   group_by(age_group, time, Immunity, Snails, DDF, Endemicity) %>%
   summarise(avg_age_group = mean(avg_age_group),
             epg_mean = mean(epg),
@@ -134,8 +135,92 @@ data_toplot_ICL <- age_out %>%
             rate_hi = ci(rate)[2]) %>%
   mutate(Exposure = exposure)
 
+########### ERR: egg reduction rate after 1 MDA round
+epg_pre_Sow <- data_toplot_Sow %>%
+  ungroup() %>%
+  filter(avg_age_group >= 5 & avg_age_group <= 15) %>%
+  group_by(Immunity, Snails, DDF, Endemicity) %>%
+  summarise(epg_mean = mean(epg_mean),
+            geom_epg_mean = mean(geom_epg_mean))
+#Now to have data after 1 round of MDA
+data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
+                       pattern = "^Ind_out_seed", full.names = TRUE) %>% 
+  lapply(readRDS) %>%              # Store all files in list
+  bind_rows %>%
+  dplyr::filter(time == parms$mda$start+1,
+                age >= 5 & age <= 15) %>%
+  dplyr::select(seed, time, Immunity, Snails, DDF, Endemicity, ec) #and repeat averaging above
+
+epg_post_Sow <- data_all %>%
+  #filter(avg_age_group >= 5 & avg_age_group <= 15) %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity) %>%
+  summarise(epg_mean = mean(ec),
+            geom_epg_mean = (geom_mean(ec+1)))
+
+ERR_Sow <- (epg_pre_Sow$epg_mean - epg_post_Sow$epg_mean)/epg_pre_Sow$epg_mean
+quantile(ERR_Sow, probs = c(0.05, 0.5, 0.95), na.rm = T)
+
+epg_pre_ICL <- data_toplot_ind %>%
+  ungroup() %>%
+  filter(Exposure == "ICL") %>%
+  filter(avg_age_group >= 5 & avg_age_group <= 15) %>%
+  group_by(Immunity, Snails, DDF, Endemicity) %>%
+  summarise(epg_mean = mean(epg_mean),
+            geom_epg_mean = mean(geom_epg_mean))
+
+#Now to have data after 1 round of MDA
+exposure = "ICL"
+setting <- paste(exposure, "func_SACmda", sep = "_")
+ind.output.dir <- file.path(source.dir, paste("Output/Individual/", setting, sep = "")) 
+data_all <- list.files(path = ind.output.dir,  # Identify all output CSV files
+                       pattern = "^Ind_out_seed", full.names = TRUE) %>% 
+  lapply(readRDS) %>%              # Store all files in list
+  bind_rows %>%
+  dplyr::filter(time == parms$mda$start+1,
+                age >= 5 & age <= 15) %>%
+  dplyr::select(seed, time, Immunity, Snails, DDF, Endemicity, ec) #and repeat averaging above
+
+epg_post_ICL <- data_all %>%
+  #filter(avg_age_group >= 5 & avg_age_group <= 15) %>%
+  group_by(time, Immunity, Snails, DDF, Endemicity) %>%
+  summarise(epg_mean = mean(ec),
+            geom_epg_mean = (geom_mean(ec+1)))
+
+ERR_ICL <- (epg_pre_ICL$epg_mean - epg_post_ICL$epg_mean)/epg_pre_ICL$epg_mean
+quantile(ERR_ICL, probs = c(0.05, 0.5, 0.95), na.rm = T)
+
+ERR <- left_join(
+  bind_rows(epg_post_ICL %>%
+                  rename(epg_mean_post = epg_mean,
+                         geom_epg_mean_post = geom_epg_mean) %>%
+                  mutate(exposure = "ICL"),
+                  
+                  epg_post_Sow %>%
+                    rename(epg_mean_post = epg_mean,
+                           geom_epg_mean_post = geom_epg_mean) %>%
+                    mutate(exposure = "Sow")),
+  bind_rows(epg_pre_ICL %>%
+            rename(epg_mean_pre = epg_mean,
+                  geom_epg_mean_pre = geom_epg_mean) %>%
+            mutate(exposure = "ICL"),
+                             
+            epg_pre_Sow %>%
+                    rename(epg_mean_pre = epg_mean,
+                           geom_epg_mean_pre = geom_epg_mean) %>%
+                    mutate(exposure = "Sow")),
+  by = c("Immunity", "Snails", "DDF", "Endemicity", "exposure"))
+
+ERR <- ERR %>%
+  mutate(ERR = (epg_mean_pre - epg_mean_post)/epg_mean_pre)
+
+quantile(ERR$ERR[ERR$DDF=="Absent"], probs = c(0.05, 0.5, 0.95), na.rm = T)
+quantile(ERR$ERR[ERR$DDF=="Mild"], probs = c(0.05, 0.5, 0.95), na.rm = T)
+quantile(ERR$ERR[ERR$DDF=="Strong"], probs = c(0.05, 0.5, 0.95), na.rm = T)
+
+##################################################
+
 data_toplot_ind <- bind_rows(data_toplot_Sow, data_toplot_ICL)
-save(data_toplot_ind, file = "Individual data for Figure1_ALL.RData")
+save(data_toplot_ind, file = "Individual data for Figure1_10062024.RData")
 
 
 ##############

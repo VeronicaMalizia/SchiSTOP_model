@@ -17,8 +17,8 @@ library(parallelly)
 writeLines(c(""), "Sink.txt") #initiate log file
 #writeLines(c(""), "Find_bug.txt") #initiate log file
 
-cluster <- makeCluster(min(detectCores(logical = F), nrow(stoch_scenarios)))
-clusterEvalQ(cluster, .libPaths(c("C:\\Users\\NTD-Computing\\Bureaublad\\Veronica\\R-4.1.2\\library",.libPaths())))
+cluster <- makeCluster(min(detectCores(logical = T), nrow(stoch_scenarios)))
+#clusterEvalQ(cluster, .libPaths(c("C:\\Users\\NTD-Computing\\Bureaublad\\Veronica\\R-4.1.2\\library",.libPaths())))
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
@@ -208,7 +208,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        #'mu' represents the expected egg load in a stool sample (41.7mg)
                        #'eggs' is the daily egg amount passed to the environment
-                       # 24 is the conversion factor from egg counts and epg
+                       # 24 is the conversion factor from egg counts and epg, because stoolxday is expressed in grams
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
                        pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp) 
