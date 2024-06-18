@@ -25,7 +25,6 @@ setwd(source.dir)
 
 #Loading data
 load("Data_for_Fig1.RData")
-load("Data_for_Fig1_DDFafterrebuttal.RData")
 
 ##### With ggplot and patchwork
 A <- ggplot(exposure, aes(x = x, y = y)) +
@@ -127,12 +126,19 @@ dev.off()
 #Figure 2
 ##############################
 #Load collated individual-level data
-load("Individual data for Figure1_ALL.RData")
+load("Individual data for Figure2_10062024.RData")
 
 #tidy
+data_toplot_ind$Exposure <- factor(as.factor(data_toplot_ind$Exposure),
+                                   levels = c("ICL", "Sow"),
+                                   labels = c("Model-based function", "Based on water contacts"))
+data_toplot_ind$Endemicity <- factor(as.factor(data_toplot_ind$Endemicity),
+                                     levels = c("Low", "Moderate", "High"))
+
 data_toplot <- data_toplot_ind %>%
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function")) %>% #No equilibrium
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
+  filter(!(Snails == "Absent" & Exposure == "Model-based function")) %>% #No equilibrium in low - therefore excluded everywhere
+  filter(!(Snails == "Absent" & Immunity == "Absent" & DDF == "Absent")) %>% #No equilibrium in all settings
+  mutate(Exposure = ifelse(Exposure == "Model-based function", "Model-based", "Water-contacts-based"))
 data_toplot$Endemicity <- factor(as.factor(data_toplot$Endemicity),
                                  levels = c("Low", "Moderate", "High"))
 
@@ -147,11 +153,13 @@ Fulford.data$Endemicity <- factor(as.factor(Fulford.data$Endemicity),
 
 ##Common assumptions reference
 reference <- data_toplot_ind %>%
-  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function") %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
+  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-based function") %>%
+  filter(Endemicity != "Low") %>% #No equilibrium
+  mutate(Exposure = ifelse(Exposure == "Model-based function", "Model-based", "Water-contacts-based"))
 
 eggs <- 
-  ggplot(data_toplot)+ #group = Immunity
+  data_toplot %>%
+  ggplot()+ #group = Immunity
   geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, 
                 group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
   geom_line(data = Fulford.data,
@@ -197,30 +205,36 @@ dev.off()
 source("01_Handy_functions.R")
 
 #Load parameters
-source("02_Parameters_Smansoni.R")
-source("Setting_simulation_scenario.R")
+parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
+                  age.hi = 15,
+                  start = 150,
+                  end = 159,
+                  frequency = 1, #annual
+                  coverage = 0.75,
+                  fr_excluded = 0.05, #systematic non-compliance 
+                  efficacy = 0.86)
 
 #Load collated population-level data
-load("Population data for Figure2&3_100seeds.RData")
+load("Population data for Figure3_10062024.RData")
 
 #Tidy
 #Exclude scenarios which do not reproduce pre-control low equilibria 
 res2 <- res %>%
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium (DDF strong no equilibrium, but reference)
+  filter(!(Snails == "Absent" & Exposure == "Model-based function"))  #No equilibrium in low - therefore excluded everywhere
 
 #Common assumptions reference
 reference <- res %>%
-  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & 
-           Exposure == "Model-derived function" & Endemicity != "Low") %>%
+  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & #(DDF-strong no equilibrium, but used as reference)
+           Exposure == "Model-based function" & Endemicity != "Low") %>%
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev)) %>%
-  rename(Human_level = Immunity) %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
+  rename(HumanLevel = Immunity) %>%
+  mutate(Exposure = ifelse(Exposure == "Model-based function", "Model-based", "Water-contacts-based"))
 
 # Averaging population data and adjust labels for plotting
 data_avg2 <- res2 %>%
-  filter(!(Snails == "Absent" & Immunity == "Absent" & DDF == "Absent" & Exposure == "Based on water contacts")) %>% #only if needed
+  filter(!(Snails == "Absent" & Immunity == "Absent" & DDF == "Absent")) %>% #only if needed
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC)) %>%
   mutate(Snails2 = case_when(Snails == "Absent" ~ "Absent",
@@ -229,15 +243,18 @@ data_avg2 <- res2 %>%
   mutate(Immunity2 = case_when(Immunity == "Absent" ~ "Absent / Mild",
                                Immunity == "Mild" ~ "Absent / Mild",
                                Immunity == "Strong" ~ "Strong")) %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
+  mutate(Exposure = ifelse(Exposure == "Model-based function", "Model-based", "Water-contacts-based"))
 
 #ggplot
 Fig3 <- 
-  ggplot(rename(data_avg2, Human_level = Immunity), aes(x=time/12, eggs_prev_SAC*100)) +
-  geom_line(aes(group = interaction(DDF, Snail, Human_level, Exposure, Endemicity), 
+  data_avg2 %>%
+  rename(HumanLevel = Immunity) %>%
+  
+  ggplot(aes(x=time/12, eggs_prev_SAC*100)) +
+  geom_line(aes(group = interaction(DDF, Snails, HumanLevel, Exposure, Endemicity), 
                 colour = interaction(Snails2, Exposure))) +
   geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
-  facet_grid(Endemicity ~ Human_level, labeller = labeller(.rows = label_both, .cols = label_both), 
+  facet_grid(Endemicity ~ HumanLevel, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
   tag_facets(tag_levels = "A", position = "tr") +
   scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
@@ -265,7 +282,7 @@ Fig3 <-
         tagger.panel.tag.text = element_text(size = 14),
         tagger.panel.tag.background = element_blank())
 
-tiff(paste("Plots/Manuscript/Fig 3.tif", sep = ""), 
+tiff(paste("Plots/Manuscript/Rebuttal/Fig 3.tif", sep = ""), 
      compression = "lzw", width=13, height=12, units = "in", res = 300)
 Fig3
 dev.off()
