@@ -1,3 +1,7 @@
+#
+# Data are loaded and figures 1, 2, and 3 are produced and saved
+#
+
 ########################
 # Creating Figure 1
 #######################
@@ -16,7 +20,6 @@ library(rstudioapi)
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
-#"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 
 ###############################

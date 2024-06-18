@@ -1,6 +1,6 @@
-#This script prepares data for plotting with PLOTTING_CODE.R
-#and computes predictions for Results
-# It also contains (as comments) checks performed along the analysis 
+# This script prepares data for plotting with 07_PLOTTING_CODE.R
+# and computes predictions to reach control targets, for the Results section (Fig 4 and 5)
+# It also contains (hereby commented) checks performed along the analysis 
 
 rm(list = ls())
 
@@ -19,7 +19,6 @@ library(rempsyc)
 
 #Set folder
 source.dir <- dirname(getActiveDocumentContext()$path)
-#"C:/Users/Z541213/Documents/Project/Model/Schisto_model"
 setwd(source.dir)
 
 
@@ -28,7 +27,7 @@ source("01_Handy_functions.R")
 
 #Load parameters
 source("02_Parameters_Smansoni.R")
-source("Setting_simulation_scenario.R")
+source("Setting_simulation_scenario.R") #This is for parameters of MDA and n. of seeds used
 ######### Setting #########
 
 #Behavior in exposure
@@ -135,7 +134,7 @@ data_toplot_Sow <- age_out %>%
             rate_hi = ci(rate)[2]) %>%
   mutate(Exposure = exposure)
 
-########### ERR: egg reduction rate after 1 MDA round
+########### ERR check: egg reduction rate after 1 MDA round
 epg_pre_Sow <- data_toplot_Sow %>%
   ungroup() %>%
   filter(avg_age_group >= 5 & avg_age_group <= 15) %>%
@@ -222,75 +221,39 @@ quantile(ERR$ERR[ERR$DDF=="Strong"], probs = c(0.05, 0.5, 0.95), na.rm = T)
 data_toplot_ind <- bind_rows(data_toplot_Sow, data_toplot_ICL)
 save(data_toplot_ind, file = "Individual data for Figure1_10062024.RData")
 
+###############
+#Predictions
+################
+#This code will compute predictions displayed in Fig 4 and 5
 
-##############
-# Age-intensity profiles
-##############
-data_toplot_ind$Exposure <- factor(as.factor(data_toplot_ind$Exposure),
-                                   levels = c("ICL", "Sow"),
-                                   labels = c("Model-derived function", "Based on water contacts"))
-data_toplot_ind$Endemicity <- factor(as.factor(data_toplot_ind$Endemicity),
-                                     levels = c("Low", "Moderate", "High"))
+#Load data of interest
+setting <- paste("Sow", "func_commMDA", sep = "_")
+res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
+  filter(Immunity != "Absent" & Snails != "Absent") %>% #Successful scenarios only 
+  mutate(Exposure = "Based on water contacts")
+res_Sow$Endemicity <- factor(as.factor(res_Sow$Endemicity),
+                             levels = c("Low", "Moderate", "High"))
 
-load("Individual data for Figure1_ALL.RData")
-data_toplot <- data_toplot_ind %>%
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function")) %>% #No equilibrium
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
-data_toplot$Endemicity <- factor(as.factor(data_toplot$Endemicity),
-                                     levels = c("Low", "Moderate", "High"))
+#Computing runs that reach EPHP or elimination:
+#This is to write the table
+options(digits = 1)
+# res$Exposure <- factor(as.factor(res$Exposure),
+#                        levels = c("Model-derived function", "Based on water contacts"),
+#                        labels = c("MD", "WC"))
+ephp <- res_Sow %>%
+  filter(time==(parms$mda$end+50)*12) %>%
+  group_by(Snails, Immunity, DDF, Exposure, Endemicity) %>%
+  summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
+            eliminated = length(which(eggs_prev_SAC==0))*100/seeds)
+# ephp <- ephp %>%
+#   unite(Snails_DDF, c(Snails,DDF), sep = ", ")
+# ephp$Endemicity <- factor(as.factor(ephp$Endemicity),
+#                              levels = c("Low", "Moderate", "High"))
 
-# Ietune <- data.frame(Age = c(2,4,6,8,10,12,14,16,18,22,28,38,50,68),
-#                      Epg = c(0,10,40,100,120,160,340,360,260,210,120,70,30,50))
-Fulford.data <- list.files(path = getwd(),  # Identify all output CSV files
-                           pattern = "^Ageprofiles", full.names = TRUE) %>% 
-  lapply(read_csv2, show_col_types = F) %>%
-  bind_rows 
-colnames(Fulford.data) <- c("Age", "Eggs", "Village", "Endemicity")
-Fulford.data$Endemicity <- factor(as.factor(Fulford.data$Endemicity),
-                                 levels = c("Low", "Moderate", "High"))
+library(flextable)
 
-##Common assumption reference
-reference <- data_toplot_ind %>%
-  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & Exposure == "Model-derived function") %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
-
-eggs <- 
-ggplot(data_toplot)+ #group = Immunity
-  geom_line(aes(x=avg_age_group, y=(geom_epg_mean-1)*24, 
-                group = interaction(Immunity, DDF, Snails), colour = Immunity)) +
-  geom_line(data = Fulford.data,
-            aes(x=Age, y=Eggs, linetype = Village), colour = "black") +
-  geom_line(data = reference,
-            aes(x=avg_age_group, y=(geom_epg_mean-1)*24), colour = "grey40", linewidth = 1) +
-  facet_grid(Endemicity ~ Exposure, labeller = labeller(.rows = label_both, .cols = label_both), 
-             scales = "free_y") + 
-  tag_facets(tag_levels = "A", position = "tr") +
-  scale_y_continuous(name = "Average egg per gram of feaces \n (geometric mean)",
-                     #breaks = seq(0, 10000, 200),
-                     #limits = c(0.5, 8000), #3000 l-m 8000 high
-                     expand = expansion(mult = c(0, 0.1), 
-                                        add = c(0, 0))) +
-  scale_x_continuous(name = "\n Age [years]",
-                     breaks = seq(0, 80, 10),
-                     limits = c(0, 70),
-                     expand = c(0, 0)) +
-  expand_limits(x = 0,y = 0) +
-  #guides(shape = "none", colour = "none") +
-  scale_color_manual(name = "Human-level regulation",
-                     values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
-  theme_bw(base_size = 16) +
-  theme(legend.position="bottom",
-        plot.margin = margin(5, 10, 0, 10, "pt"),
-        panel.spacing = unit(1.5, "lines"),
-        legend.key.width = unit(2, "lines"),
-        strip.text = element_text(size = 14),
-        tagger.panel.tag.text = element_text(size = 14),
-        tagger.panel.tag.background = element_blank()) 
-
-tiff(paste("Plots/Manuscript/Fig 2.tif", sep = ""), 
-     compression="lzw", width=12, height=12, units = "in", res = 300)
-eggs
-dev.off()
+table <- nice_table(ephp, options(digits = 1))
+print(table, preview ="docx")
 
 #Check distribution of worms
 # #worms <- 
@@ -318,75 +281,6 @@ dev.off()
 #           strip.text = element_text(size = 13),
 #           tagger.panel.tag.text = element_text(size = 14),
 #           tagger.panel.tag.background = element_blank()) 
-
-##############
-# Observed pattern
-##############
-res2 <- res %>%
-  filter(!(Snails == "Absent" & Exposure == "Model-derived function"))  #No equilibrium (DDF strong no equilibrium, but reference)
-
-#Common assumptions
-reference <- res %>%
-  filter(Snails == "Absent" & Immunity == "Absent" & DDF == "Strong" & 
-           Exposure == "Model-derived function" & Endemicity != "Low") %>%
-  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
-            eggs_prev_tot = mean(eggs_prev)) %>%
-  rename(Human_level = Immunity) %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
-
-
-# Averaging population data
-data_avg2 <- res2 %>%
-  filter(!(Snails == "Absent" & Immunity == "Absent" & DDF == "Absent" & Exposure == "Based on water contacts")) %>% #only if needed
-  group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
-  summarise(eggs_prev_SAC = mean(eggs_prev_SAC)) %>%
-  mutate(Snails2 = case_when(Snails == "Absent" ~ "Absent",
-                             Snails == "Mild" ~ "Mild / Strong",
-                             Snails == "Strong" ~ "Mild / Strong")) %>%
-  mutate(Immunity2 = case_when(Immunity == "Absent" ~ "Absent / Mild",
-                               Immunity == "Mild" ~ "Absent / Mild",
-                               Immunity == "Strong" ~ "Strong")) %>%
-  mutate(Exposure = ifelse(Exposure == "Model-derived function", "Model-based", "Water-contacts-based"))
-
-Fig3 <- 
-  ggplot(rename(data_avg2, Human_level = Immunity), aes(x=time/12, eggs_prev_SAC*100)) +
-  geom_line(aes(group = interaction(DDF, Snails, Human_level, Exposure, Endemicity), 
-                colour = interaction(Snails2, Exposure))) +
-  geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
-  facet_grid(Endemicity ~ Human_level, labeller = labeller(.rows = label_both, .cols = label_both), 
-             scales = "free_y") + 
-  tag_facets(tag_levels = "A", position = "tr") +
-  scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
-                     #breaks = c(10, 30, 60),
-                     #limits = c(0, 80),
-                     expand = expansion(mult = c(0, 0), 
-                                        add = c(0, 5))) + #5
-  scale_x_continuous(name = "\n Years since last treatment round",
-                     breaks = seq(parms$mda$end-10, parms$mda$end+20, 10),
-                     labels = seq(-10, 20, 10),
-                     #limits = c(0, 1200),
-                     expand = c(0, 0)) +
-  coord_cartesian(xlim=c(parms$mda$end-10, parms$mda$end+20)) +
-  expand_limits(x = 0,y = 0) +
-  #scale_linetype_manual(values = c("Absent" = "solid", "Strong" = "dashed")) +
-  scale_color_manual(name = "(Snail-level, Exposure)",
-                     labels = c("(Mild / Strong, Model-based)", "(Absent, Water-contacts-based)", "(Mild / Strong, Water-contacts-based)"),
-                     values = c(hue_pal()(3)[1], "purple", hue_pal()(3)[3])) +
-  theme_bw(base_size = 16) +
-  theme(legend.position="bottom",
-        plot.margin = margin(5, 10, 0, 10, "pt"),
-        panel.spacing = unit(1.5, "lines"),
-        legend.key.width = unit(2, "lines"),
-        strip.text = element_text(size = 13),
-        #text = element_text(size = 14),
-        tagger.panel.tag.text = element_text(size = 14),
-        tagger.panel.tag.background = element_blank())
-
-tiff(paste("Plots/Manuscript/Fig 3.tif", sep = ""), 
-     compression = "lzw", width=13, height=12, units = "in", res = 300)
-Fig3
-dev.off()
 
 ###################
 # Check intensities after treatment for successful scenarios only
@@ -433,47 +327,6 @@ dev.off()
 #         strip.text = element_text(size = 13),
 #         tagger.panel.tag.text = element_text(size = 14),
 #         tagger.panel.tag.background = element_blank())
-
-###############
-#Predictions
-################
-#This code will compute predictions displayed in Fig 4 and 5
-
-#Load data
-setting <- paste("Sow", "func_commMDA", sep = "_")
-res_Sow <- readRDS(file.path(pop.output.dir, paste(setting, ".RDS", sep = ""))) %>%
-  filter(Immunity != "Absent" & Snails != "Absent") %>% #Successful scenarios only 
-  #filter(Endemicity == "Moderate", Immunity == "Mild", Snails == "Mild", DDF == "Absent") %>%
-  mutate(Exposure = "Based on water contacts")
-res_Sow$Endemicity <- factor(as.factor(res_Sow$Endemicity),
-                             levels = c("Low", "Moderate", "High"))
-
-el_seeds <- res_Sow[which(res_Sow$eggs_prev_SAC==0 & res_Sow$time==(parms$mda$end+50)*12), "seed"]
-res_Sow <- res_Sow %>%
-  # group_by(Immunity, Endemicity, Snails, DDF) %>%
-  # mutate(el_run = ifelse(eggs_prev_SAC==0 & time==(parms$mda$end+50)*12, seed, F)) #%>%
-  mutate(eliminated = ifelse(seed %in% el_seeds$seed, "Interruption", "Bounce-back")) 
-
-#Computing runs that reach EPHP or elimination:
-#This is to write the table
-options(digits = 1)
-# res$Exposure <- factor(as.factor(res$Exposure),
-#                        levels = c("Model-derived function", "Based on water contacts"),
-#                        labels = c("MD", "WC"))
-ephp <- res_Sow %>%
-  filter(time==(parms$mda$end+50)*12) %>%
-  group_by(Snails, Immunity, DDF, Exposure, Endemicity) %>%
-  summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
-            eliminated = length(which(eggs_prev_SAC==0))*100/seeds)
-# ephp <- ephp %>%
-#   unite(Snails_DDF, c(Snails,DDF), sep = ", ")
-# ephp$Endemicity <- factor(as.factor(ephp$Endemicity),
-#                              levels = c("Low", "Moderate", "High"))
-
-table <- nice_table(ephp, options(digits = 1))
-print(table, preview ="docx")
-
-library(flextable)
 
 
 #############
