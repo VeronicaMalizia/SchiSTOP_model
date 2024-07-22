@@ -206,6 +206,7 @@ dev.off()
 #Load parameters
 #Load functions (in this case it's only needed for expressing time in terms of MDA rounds)
 source("01_Handy_functions.R")
+source("02_Parameters_Smansoni.R")
 
 #Load parameters
 parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
@@ -232,7 +233,7 @@ reference <- res %>%
   group_by(time, Immunity, Snails, DDF, Endemicity, Exposure) %>%
   summarise(eggs_prev_SAC = mean(eggs_prev_SAC),
             eggs_prev_tot = mean(eggs_prev)) %>%
-  rename(HumanLevel = Immunity) %>%
+  rename(`Human-level` = Immunity) %>%
   mutate(Exposure = ifelse(Exposure == "Model-based function", "Model-based", "Water-contacts-based"))
 
 # Averaging population data and adjust labels for plotting
@@ -251,13 +252,13 @@ data_avg2 <- res2 %>%
 #ggplot
 Fig3 <- 
   data_avg2 %>%
-  rename(HumanLevel = Immunity) %>%
+  rename(`Human-level` = Immunity) %>%
   
   ggplot(aes(x=time/12, eggs_prev_SAC*100)) +
-  geom_line(aes(group = interaction(DDF, Snails, HumanLevel, Exposure, Endemicity), 
+  geom_line(aes(group = interaction(DDF, Snails, `Human-level`, Exposure, Endemicity), 
                 colour = interaction(Snails2, Exposure))) +
   geom_line(data = reference, aes(x=time/12, eggs_prev_SAC*100), colour = "grey30") +
-  facet_grid(Endemicity ~ HumanLevel, labeller = labeller(.rows = label_both, .cols = label_both), 
+  facet_grid(Endemicity ~ `Human-level`, labeller = labeller(.rows = label_both, .cols = label_both), 
              scales = "free_y") + 
   tag_facets(tag_levels = "A", position = "tr") +
   scale_y_continuous(name = "Prevalence of infection in school-aged children (%) \n",
