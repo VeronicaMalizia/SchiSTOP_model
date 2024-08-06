@@ -66,6 +66,21 @@ init$humans$pop <- init$humans$pop %>%
 source("Setting_simulation_scenario.R")
 
 ################
+#Only for sensitivity analysis on the worm killing rate
+#Comment if not needed
+################
+write.output <- FALSE #no need for ind output
+parms$mda <- list(age.lo = 5, #SAC is 5-15 #all population >= 2ys (WHO)
+                  age.hi = 15,
+                  start = 150,
+                  end = 159,
+                  frequency = 1, #annual
+                  coverage = 0.75,
+                  fr_excluded = 0.05, #systematic non-compliance 
+                  efficacy = 0.9) #varying as 0.8, 0.9, 0.95. Value in the main analysis is 0.86
+setting <- paste(exposure, "func_SACmda_0.9killworm", sep = "_")
+
+################
 #Run the model
 ################
 setwd(source.dir)
@@ -74,14 +89,14 @@ time.start <- Sys.time()
 source("04_Model_specification.R")
 time.end <- Sys.time()
 time.end - time.start
-beep()
+#beep()
 
 ################
 #Collating and saving population-level results 
 ################
 #Population-level results
 #Set endemicity setting:
-pop.output.dir <- file.path(source.dir, "Output/Population/")
+pop.output.dir <- file.path(source.dir, "Output/Population/Sensitivity_analysis")
 if(!file.exists(pop.output.dir)){
   dir.create(pop.output.dir)
 }
@@ -92,7 +107,7 @@ saveRDS(bind_rows(results), file = file.path(pop.output.dir,
                            paste(setting, ".RDS", sep = "")))
 
 
- ################
+################
 #Check equilibria
 ################
 faided <- res %>%
