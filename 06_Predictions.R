@@ -241,7 +241,7 @@ options(digits = 1)
 #                        levels = c("Model-derived function", "Based on water contacts"),
 #                        labels = c("MD", "WC"))
 ephp <- res_Sow %>%
-  filter(time==(parms$mda$end+50)*12) %>%
+  filter(time==(parms$mda$end+20)*12) %>%
   group_by(Snails, Immunity, DDF, Exposure, Endemicity) %>%
   summarise(ephp_seed = length(which(Heggs_prev<=0.01))*100/seeds,
             eliminated = length(which(eggs_prev_SAC==0))*100/seeds)
