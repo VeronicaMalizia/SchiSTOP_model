@@ -1,9 +1,12 @@
 #############################
 #Author: Veronica Malizia
+#Date: 20/06/2022
 #R version: 4.1.2
 #
 #Handy functions employed throughout the model
+#
 #############################
+
 `%!in%` <- Negate(`%in%`)
 geom_mean <- function(x){exp(mean(log(x)))}
 ci <- function(x){quantile(x, probs=c(0.025, 0.975), na.rm = T)}
@@ -36,6 +39,7 @@ expon_reduction <- function(alpha, w){
 #plot(logistic(k=imm, w0=w0_imm, c(0:8000)), ylim = c(0, 1), ylab = "Reduction", xlab = "Number of worm pairs")
 
 #ODE system diefinition for snails' module
+#See 02_Parameters_Smansoni.R and 03_SIE_ode_snails.r for more details
 SEI <- function(t, x, parms) {    
   with(as.list(c(parms, x)), {
     N_s <- S+E+I #is it better to work with densities?

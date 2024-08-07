@@ -1,9 +1,17 @@
 #############################
 #Author: Veronica Malizia
+#Date: 20/06/2022
 #R version: 4.2.2
 #
-#Initial conditions and initial population to start simulations
-#Species: Schistosoma mansoni
+# The script sets the initial conditions to start simulations with SchiSTOP, about:
+# - human population
+# - environment
+# - snail population
+#
+# Input Data: 
+# - "Equilibrium_age_distribution.RData" generated from script 00_Demography.R
+# - "prob_death_Uganda_2019.csv" (age-specific death probabilities)
+# Species of interest: Schistosoma mansoni
 #############################
 
 ## Load initial population 

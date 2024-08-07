@@ -1,6 +1,21 @@
-#
-# Data are loaded and figures 1, 2, and 3 are produced and saved
-#
+#############################
+#Author: Veronica Malizia
+#Date: 14/10/2023
+#R version: 4.1.2
+
+# This script loads cleaned and saved data generated from 06_Predictions.R
+# Data are prepared for plotting. Figures 2 and 3 of the manuscript are produced.  
+
+# Input data:
+# - "Data_for_Fig1.RData"
+# - "Population data for Figure3.RData"
+# - "Individual data for Figure2.RData"
+
+# Output:
+# - Fig1.tif
+# - Fig2.tif
+# - Fig3.tif
+##############################
 
 ########################
 # Creating Figure 1
@@ -8,9 +23,9 @@
 rm(list = ls())
 
 #Loading packages
-.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+#line below only needed if R library is different than default
+#.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(ggplot2)
-#library(plotly)
 library(tidyverse)
 library(patchwork)
 library(dplyr)

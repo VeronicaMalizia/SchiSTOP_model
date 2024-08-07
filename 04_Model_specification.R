@@ -3,9 +3,12 @@
 #Date: 27/07/2021
 #R version: 3.6.1
 
-#This script contains the model specification 
-#It is called and launched into the main script 01_First\model.R
+# This is the main script containing the model's formulation and specifications
+# It contains the function defining the ABM, with integrated ODEs module for snails dynamics
+# This script is called and launched from the "console script" 05_Run_model.R
+# It runs in parallel simulations using "doParallel" and "foreach" packages
 #
+# The functions called within the script are stored in 01_Handy_functions.R
 #############################
 
 library(tidyverse)
@@ -15,10 +18,9 @@ library(doParallel)
 library(parallelly)
 
 writeLines(c(""), "Sink.txt") #initiate log file
-#writeLines(c(""), "Find_bug.txt") #initiate log file
 
 cluster <- makeCluster(min(detectCores(logical = T), nrow(stoch_scenarios)))
-#clusterEvalQ(cluster, .libPaths(c("C:\\Users\\NTD-Computing\\Bureaublad\\Veronica\\R-4.1.2\\library",.libPaths())))
+# line below only if library folder is different than default
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
 registerDoParallel(cluster)
 
@@ -47,7 +49,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
                                                     scen$imm_strength== "Mild" ~ 0.0005,
                                                     scen$imm_strength== "Strong" ~ 0.002) #immunity slope parameter
-                     parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No module
+                     parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No ODEs module is called
                                                                 scen$snails == "Mild" ~ 20000,
                                                                 scen$snails == "Strong" ~ 10000)
                      parms$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
@@ -151,13 +153,13 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        pop <- filter(pop, age < death_age)
                        
                        ########## MIGRATION
-                       #For now we do not account for age-specific emigration
+                       #For now we do not account for age-specific emigration. We only select an eligible age group (5-55)
                        lambda <- round(parms$demography$emig_rate*(nrow(pop)/1000)/12)
                        emigrated <- sample(which(pop$age>5&pop$age<55), lambda)
                        if(length(emigrated)>0)
                          pop <- pop[-emigrated,]
                        
-                       ########## UPDATE population size, SAC and cumulative exposure
+                       ########## UPDATE population size, SAC vector, and cumulative exposure
                        N[t] <- nrow(pop)
                        SAC <- which(pop$age >= 5 & pop$age <= 15)
                        
@@ -179,8 +181,8 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        #Parasitology (vectorised)
                        ###########################################
                        
-                       ########### 1. CONTROL (MDA: 75% coverage, annual to SAC, starting to year 50 to 70)
-                       # If MDA applies, it is scheduled at the beginning of the month
+                       ########### 1. CONTROL (MDA: 75% coverage, annual to target population)
+                       # If MDA occurs, it is scheduled at the beginning of the month
                        killed_worms1 <- 0
                        killed_worms2 <- 0
                        killed_worms3 <- 0
@@ -204,11 +206,11 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        ########### 2. EGGS production (before updating worms)
                        #Worms' pairs (so mature at stage 4) produce eggs
-                       #(Shall we consider insemination probability??)
+                       #Can be improved with introduction of insemination probability
                        
                        #'mu' represents the expected egg load in a stool sample (41.7mg)
                        #'eggs' is the daily egg amount passed to the environment
-                       # 24 is the conversion factor from egg counts and epg, because stoolxday is expressed in grams
+                       # 24 is the Kato-Katz conversion factor from egg counts to epg, because (stool x day) is expressed in grams
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
                        pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp) 
@@ -216,14 +218,16 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        eggs <- round(pop$mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
+                       # 'ec' represents the egg counts detected with a simulated Kato-Katz test. Random draw from a Negative Binomial distribution
                        pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu)  
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
                        #Eggs are passed to the intestine and released in the environment
-                       # TIP: I can add a delay in eggs' excretion
+                       # TIP: this part can be improved with a delay in eggs' excretion
                        
-                       #We can skip contribution, we assume here that contribution is not dependent on age
+                       #This is commented in this version of SchiSTOP, as we assume that contribution is not dependent on age
+                       #but the feature can be turned on by the user
                        #pop$co <- round(eggs * Age_profile_contr(pop$age)$y)
                        
                        ########## 5. LIFE IN THE ENVIRONMENTAL RESERVOIR
@@ -235,12 +239,14 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        if(scen$snails != "Absent"){
                          #Run snails ODEs model
-                         #in the final reservoir we have the output of cercariae
+                         #in the final reservoir we have the total output of cercariae
                          #we assume particles not infecting humans do not survive from the previous month
                          
                          #Call parameters and initial conditions
-                         #SEIC runs at daily time step
-                         mirac.input = m_in[t-1] #chi*miracidiae will be divided by N[t] in the system #Civitello uses a unique factor of 0.01
+                         #SEI-system runs at daily time step
+                         mirac.input = m_in[t-1] #miracidial input
+                         
+                         #for details about the parameters see 02_Parameters_Smansoni.R
                          parms.ODE  <- c(beta0 = parms$snails$max.reproduction.rate, 
                                          k = parms$snails$carrying.capacity, 
                                          v = parms$snails$mortality.rate,
@@ -285,17 +291,14 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        }
                        
                        ########## 6. EXPOSURE OF HUMANS 
-                       #Each individual assumes new worms (FOIh) and immunity applies
-                       #One exposure rate per individual (based on age and ind. sus.)
+                       #Each individual acquires new worms (FOIh) and anti-reinfection immunity here applies
+                       #One exposure rate per individual (based on age and individual susceptibility)
                        pop$rate = FOIh(l=cercariae[t], zeta=parms$parasite$zeta, rel_exp=rel_exp, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
                        #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                        
                        ########## 7. SAVE OUTPUT
-                       # sink("Find_bug.txt", append=TRUE)
-                       # cat(paste(Sys.time(), ": Seed:", k, "Time step", t, "res", cercariae[t], "\n", sep = " "))
-                       # sink()
-                       
-                       #Summary statistics
+ 
+                       #Summary statistics for population-level output 
                        tot_worms <- pop$jw1+ pop$jw2 + pop$jw3 + pop$wp1 + pop$wp2 + pop$wp3
                        true_prev[t] <- length(which(tot_worms>0))/nrow(pop)
                        eggs_prev[t] <- length(which(pop$ec>0))/nrow(pop)
@@ -312,7 +315,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                          exp_snail[t] <- out2$E[nrow(out2)]
                        }
                        
-                       #Save annual individual output
+                       #Save annual individual-level output
                        if(write.output == TRUE){
                          if(t %in% seq(12, (T*12), fr*12) & t > 500){ #Decembers, every 10 years
                            ind_file <- rbind(ind_file,
@@ -330,18 +333,18 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                          }
                        }
                        
-                       ########## 8. WORMS UPDATE (for next month)
+                       ########## 8. WORMS UPDATE (for next monthly time step)
                        
                        ###Juveniles worms
-                       #Juvenile worms at stage 3 do pair and move to stage 4. Who doesn't, do not survive.
+                       #Juvenile worms at stage 3 do pair and move to stage 4. The ones who don't, do not survive.
                        #per each human host, juvenile worms at stage 3 are assigned with sex
                        malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3) #From here on we track worm pairs as units. 
+                       new_pairs <- pmin(malesnw, pop$jw3) #From here on we track worm pairs as infective units. 
                        
                        pop$jw3 = pop$jw2 
                        pop$jw2 = pop$jw1 
                        
-                       #First stage juveniles(new acquired)
+                       #First stage juveniles (new acquired)
                        pop$jw1 = rpois(nrow(pop), pop$rate) 
                        if(t <= parms$parasite$ext.foi$duration*12)
                          pop$jw1 = pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
@@ -351,7 +354,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        # Three baskets: wp1, wp2, wp3, three aging groups
                        aging_1 <- rbinom(nrow(pop), pop$wp1, parms$parasite$phi)
                        aging_2 <- rbinom(nrow(pop), pop$wp2, parms$parasite$phi)
-                       aging_3 <- rbinom(nrow(pop), pop$wp3, parms$parasite$phi) #dying_pairs
+                       aging_3 <- rbinom(nrow(pop), pop$wp3, parms$parasite$phi) #these are the dying_pairs
                        
                        pop$wp1 = pop$wp1 + new_pairs - aging_1
                        pop$wp2 = pop$wp2 + aging_1 - aging_2

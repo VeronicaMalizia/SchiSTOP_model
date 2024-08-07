@@ -2,22 +2,24 @@
 #Author: Veronica Malizia
 #Date: 20/06/2022
 #R version: 3.6.1
-
+#
 #This script initializes human demography (with age/birth/deaths)
-#The equilibrium reached by simulations will determine the initial population of the transmission model
-#Data: 
+#The age distribution at the equilibrium reached by these simulations will determine the initial population for SchiSTOP
+#
+# Input Data: 
 # - Age distribution Uganda 2019
 # - Death_rates_Uganda_2019 specific by age (from: https://apps.who.int/gho/data/view.searo.61730?lang=en)
-#Main use: calibrating birth rate and migration rate to keep population constant. 
-#Death probabilities are given to preserve age distribution.
-#To save as output:
+#
+# Main use: calibrating birth rate and migration rate to keep population constant and reach equilibrium. 
+# Death probabilities are given to preserve age distribution.
+# Saved output:
 # - demography parameters
-# - final population composition
+# - final age-distribution: "Equilibrium_age_distribution.RData"
 #
 #############################
 rm(list = ls())
 
-.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
+#.libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths()))
 library(tidyverse)
 library(readxl)
 library(foreach)
@@ -26,6 +28,10 @@ library(splitstackshape)
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 source.dir <- "C:/Users/Z541213/Documents/Project/Model/Schisto_model"
+output.dir <- file.path(source.dir, "/Output")
+if(!file.exists(output.dir)){
+  dir.create(output.dir)
+}
 
 ################
 #Initial plausible Ugandan population
@@ -51,6 +57,9 @@ table(cohort$sex)
 
 #Output folder
 output_dem <- file.path(source.dir, "/Output/Demography")
+if(!file.exists(output_dem)){
+  dir.create(output_dem)
+}
 
 ##Parameters
 T <- 300*12 #number of years
@@ -60,9 +69,8 @@ birth_rate <- 36.5 #37.38 is crude annual birth rate Uganda 2019 (same y of avai
 emig_rate <- 18.6 #This approximates the emigration rate from rural villages (2021) (per 1000 individuals)
 # Annual time step to get equilibrium
 
-seeds <- 10
+seeds <- 10 # User-defined
 writeLines(c(""), "Sink_demography.txt") #initiate log file
-#writeLines(c(""), "Find_bug.txt") #initiate log file
 
 time.start <- Sys.time()
 cluster <- makeCluster(min(parallel::detectCores(logical = FALSE), seeds))
@@ -145,12 +153,8 @@ results <- foreach(k = 1:seeds,
 
                        ##ATTENTION!
                        #Need to cancel extra files if running less seeds at the following round
-                  
-                       # sink("Find_bug.txt", append=TRUE)
-                       # cat(paste(Sys.time(), ": Time step", t, "NB:",
-                       #           births, "deads", length(dead), "Pop size:", nrow(pop), "\n", sep = " "))
-                       # sink()
-                     }
+                       #This can be improved
+                      }
                      
                      filename <- paste("Ind_out_seed_", k, ".csv", sep="")
                      write.csv(ind_file, file.path(output_dem, filename), row.names = F)
@@ -204,7 +208,7 @@ data_all <- list.files(path = output_dem,  # Identify all output CSV files
   lapply(read_csv, show_col_types = F) %>%              # Store all files in list
   bind_rows                                             # Combine data sets into one
 
-##Age distribution by time
+##Check that Age distribution is preserved by time
 #https://r-charts.com/distribution/ggridges/
 cohort_plot_age <- cohort %>%
   mutate(time = 0,

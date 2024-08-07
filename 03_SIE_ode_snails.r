@@ -5,11 +5,12 @@
 
 #Snails are infected with a FOIs: human-to-snail
 #This modules implements the SEI model for freshwater snail population
-#The model provides as outcome the FOIh: snail-to-human
+#The output of this module is the FOIh: snail-to-human
 
 #Daily time steps for snail population dynamics
 
-#This script is explorative for snails dynamics. In the main Schisto model it is already included in line
+#This script purely explores snails dynamics. It is not called within the main formulation of SchiSTOP.
+#The ODE module for snails is in fact explicitely written and included in the specification of the ABM.
 #############################
 rm(list = ls())
 
@@ -34,8 +35,8 @@ SEI <- function(t, x, parms) {
 }
 
 #Checks:
-## 1. N is not supposed go asymptotically move towards k, because respectively to a normal logistic growth function (beta*(1-N/k)*N)
-##    here only S + E contribute to the reproduction. Moreover, I have an extra mortality factor.
+## 1. N is not supposed to asymptotically move towards k, because with respect to a normal logistic growth function (beta*(1-N/k)*N)
+##    here only S + E contribute to the reproduction. Moreover, we have here an extra mortality factor.
 ##    The population dynamics are different than a normal logistic growth population.
 ##
 ## 2. Is (and if so why) the snail infection prevalence affected by the choice of k? (see plotting code at the end of the document)
@@ -43,16 +44,16 @@ SEI <- function(t, x, parms) {
 ## Parameters
 #ENV = 500 #L, total volume of water
 max.reproduction.rate = 1 #0.1 d^-1 from Civitello DJ, 2022 #monthly is ~ 1 egg/day 
-carrying.capacity = 10000 #arbitrary. To be estimated. #Civitello uses 5 L^-1 (about 30 per m3) 
-lifespan = 100 #days, Civitello #Gurarie: about 3 months
+carrying.capacity = 10000 #arbitrary. To be estimated. #Civitello et al. use 5 L^-1 (about 30 per m3) 
+lifespan = 100 #days, Civitello and Gurarie: about 3 months
 lifespan.infected = 30 #days, Gurarie
 mortality.rate = 1/lifespan 
 #lifespan.reduction=0.8 #arbitrary. Still not enough evidence found.
-mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. He works with additional mortality
+mortality.rate.infection = 1/lifespan.infected #0.04 d^-1 from Civitello. They work with additional mortality
 mu = 30 #1 month: lifespan of larvae within the snail, before shedding cercariae
 infection.rate = 1/mu 
 snail_transmission_rate = 0.000001 #a combined version of exposure rate and probability of success. invasion
-#rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail
+#rej.prob = 0.5 #probability of rejecting a miracidia, after getting in contact with the snail. Not used here.
 # (1-chi)=0.5 for Civitello. OR it is for now computed from a Poisson as P(x=1)=0.8*exp(-0.8) using the infection rate from Anderson & May (1991).
 max.invasion = 1/15 #1/d. Rate of sporocyst development in snails, given successful invasion.
 cerc.prod.rate = 50 #1/d per infected snail
@@ -97,17 +98,6 @@ out2 <- as.data.frame(out)
 
 tail(out2)
 
-#Solving iteratively for different carring capacities
-ks <- c(1000, 5000, 10000, 20000)
-for(i in 1:length(ks)){
-  parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
-              snail_exposure = snail_exposure_rate, mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
-              v2 = mortality.rate.infection, tau = infection.rate,
-              lambda = cerc.prod.rate, m = cerc.mortality)
-  assign(paste("out_", ks[i], sep = ""),
-  as.data.frame(lsoda(xstart, times, SEI, parms)))
-}
-
 ## Plotting
 TOT <- out2$S + out2$E + out2$I
 yname <- "Abundances of snails"
@@ -148,8 +138,18 @@ legend("topright",
        horiz = F , 
        inset = c(0.1, 0.1))
 
+#Solving iteratively for different carring capacities
+ks <- c(1000, 5000, 10000, 20000)
+for(i in 1:length(ks)){
+  parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
+              snail_exposure = snail_exposure_rate, mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
+              v2 = mortality.rate.infection, tau = infection.rate,
+              lambda = cerc.prod.rate, m = cerc.mortality)
+  assign(paste("out_", ks[i], sep = ""),
+         as.data.frame(lsoda(xstart, times, SEI, parms)))
+}
 
-#Plotting if we run for different values of k
+#Plotting IF we run for different values of k
 #Infected
 plot(out_20000$time, out_20000$I, col='dark green', type='l', xlab = "Time in days",
      ylab = "Infected snail population") 
