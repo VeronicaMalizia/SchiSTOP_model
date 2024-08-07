@@ -20,8 +20,8 @@ Veronica Malizia^1^
 
 ### **Supervision**
 
-Sake J. de Vlas^2^, Federica Giardina^1^
+Sake J. de Vlas^2, Federica Giardina^1
 
-^1^ Radboud University Medical Center, Department IQ Health, Biostatistics Research Group, Nijmegen, The Netherlands
+^1 Radboud University Medical Center, Department IQ Health, Biostatistics Research Group, Nijmegen, The Netherlands
 
-^2^ Department of Public Health, Erasmus MC, University Medical Center Rotterdam, Rotterdam, The Netherlands
+^2 Department of Public Health, Erasmus MC, University Medical Center Rotterdam, Rotterdam, The Netherlands
