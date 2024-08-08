@@ -3,13 +3,13 @@
 #Date: 14/10/2023
 #R version: 4.1.2
 
-# This script loads cleaned and saved data generated from 06_Predictions.R
-# Data are prepared for plotting. Figures 2 and 3 of the manuscript are produced.  
+# This script loads data cleaned and prepared for plotting.
+# Figures 2 and 3 of the manuscript are produced.  
 
 # Input data:
-# - "Data_for_Fig1.RData"
-# - "Population data for Figure3.RData"
-# - "Individual data for Figure2.RData"
+# - "Data_for_Fig1.RData", generated from 02.1_Parameters_regulating_mechanisms.R
+# - "Population data for Figure3.RData", generated from 06_Predictions.R
+# - "Individual data for Figure2.RData", generated from 06_Predictions.R
 
 # Output:
 # - Fig1.tif
