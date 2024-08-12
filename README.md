@@ -14,7 +14,7 @@ Detailed description of SchiSTOP has been published within the manuscript: *"Rev
 
 1.  File `02.2_Setting_simulation_scenario.R`: customize scenario-specific parameters. This will prepare the setting to run simulations.
 
-2.  File `05_Run_model.R` : run the model and save results. The script allows to load input data, call previous scripts, customize the parameters for simulations, launched simulations with SchiSTOP from R source (`04_Model_specification.R`). Results are stored in two outputs:
+2.  File `05_Run_model.R` : run the model and save results. The script allows to load input data, call previous scripts, customize the parameters for simulations, launch simulations with SchiSTOP from R source (`04_Model_specification.R`). Results are stored in two outputs:
 
     -   population-level output, i.e. results aggregated at population level (e.g. prevalence)
 
