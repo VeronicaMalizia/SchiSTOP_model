@@ -1,5 +1,11 @@
 # SchiSTOP model implementation
 
+#### SchiSTOP (Beyond mass drug administration: understanding Schistosomiasis dynamics to STOP transmission), 
+
+a project funded by the European Marie Skłodowska-Curie fellowship.
+
+#
+
 Repository of code for SchiSTOP modelling framework: a stochastic agent-based (ABM) transmission model for the transmission dynamics of *Schistosoma mansoni* in human population. An ODE-based module for the infection dynamics within the snail intermidiate host is integrated into the ABM.
 
 Detailed description of SchiSTOP has been published within the manuscript: *"Revisiting the impact of Schistosoma mansoni regulating mechanisms on transmission dynamics using SchiSTOP , a novel modelling framework"*.
