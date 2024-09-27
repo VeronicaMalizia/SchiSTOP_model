@@ -14,65 +14,78 @@
 library(tidyverse)
 library(readxl)
 library(foreach)
-library(doParallel)
-library(parallelly)
+#library(doParallel)
+library(doFuture)
+library(future)
+#library(parallelly)
 
-writeLines(c(""), "Sink.txt") #initiate log file
+#writeLines(c(""), "Sink.txt") #initiate log file
 
-cluster <- makeCluster(min(detectCores(logical = T), nrow(stoch_scenarios)))
+#This is for doParallel
+#num_cores <- as.numeric(Sys.getenv("SLURM_CPUS_ON_NODE", "1"))
+#cluster <- makeCluster(min(num_cores, nrow(stoch_scenarios)))
 # line below only if library folder is different than default
 #clusterEvalQ(cluster, .libPaths(c("C:/Program Files/R/R-4.1.2/library",.libPaths())))
-registerDoParallel(cluster)
+#registerDoParallel(cluster)
+
+#This is for doFuture
+#registerDoFuture()
+plan(multicore, workers = 16)
 
 results <- foreach(k = 1:nrow(stoch_scenarios),
                    .inorder = TRUE,
                    .errorhandling = "pass", #remove or pass
                    .verbose = TRUE,
-                   #.combine = bind_rows, #default is a list
-                   .packages = c("tidyverse", "deSolve", "splitstackshape")) %dopar% {
+                   .combine = 'list', #default is a list
+                   .options.future = list(seed = TRUE, packages = c("tidyverse", "deSolve", "splitstackshape"))) %dofuture% {
                      
                      #set scenario-specific parameters
                      scen <- stoch_scenarios[k, ]
-                     
+
                      #Load matched alphas for Density-dependent fecundity (DDF) given the endemicity
                      load(paste("Matched_alphas_", scen$endem, ".RData", sep = ""))
                      
                      #Transmission parameters
-                     parms$parasite$zeta = scen$zeta #overall exposure rate.
-                     parms$parasite$k_w = scen$worms_aggr
-                     parms$snails$snail_transmission_rate = scen$tr_snails
+                     parmsk <- parms
+                     parmsk$parasite$zeta = scen$zeta #overall exposure rate.
+                     parmsk$parasite$k_w = scen$worms_aggr
+                     parmsk$snails$snail_transmission_rate = scen$tr_snails
                      
-                     parms$parasite$ext.foi$value = scen$Ext_foi_value
-                     parms$parasite$ext.foi$duration = scen$Ext_foi_duration
+                     parmsk$parasite$ext.foi$value = scen$Ext_foi_value
+                     parmsk$parasite$ext.foi$duration = scen$Ext_foi_duration
                      
                      #Regulating mechanisms
-                     parms$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
+                     parmsk$immunity$imm = case_when(scen$imm_strength== "Absent" ~ 0,
                                                     scen$imm_strength== "Mild" ~ 0.0005,
                                                     scen$imm_strength== "Strong" ~ 0.002) #immunity slope parameter
-                     parms$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No ODEs module is called
+                     parmsk$snails$carrying.capacity = case_when(scen$snails == "Absent" ~ 1, #No ODEs module is called
                                                                 scen$snails == "Mild" ~ 20000,
                                                                 scen$snails == "Strong" ~ 10000)
-                     parms$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
+                     parmsk$parasite$eggs$alpha = case_when(scen$DDF_strength== "Absent" ~ alpha_lin,
                                                            scen$DDF_strength== "Mild" ~ alpha_mild,
                                                            scen$DDF_strength== "Strong" ~ alpha_strong) #fecundity parameter
-                     parms$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
+                     parmsk$parasite$eggs$z = case_when(scen$DDF_strength== "Absent" ~ 0,
                                                        scen$DDF_strength== "Mild" ~ 0.00022,
                                                        scen$DDF_strength== "Strong" ~ 0.0007) #severity of density dependency
-                     
-                     
-                     sink("Sink.txt", append=TRUE)
-                     cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
-                     sink()
-                     
+ 
+                    #  log_file <- file.path(source.dir, paste("/Sink_worker_", k, ".txt", sep = ""))
+                    #  writeLines(c(""), log_file) #initiate log file
+
+                    #  sink(log_file, append=TRUE)
+                    #  cat(paste(Sys.time(), ": Scenario nr.", k, "\n", sep = " "))
+                    #  flush.console()
+                    #  sink()
+
                      #for each seed:
                      
                      #profvis({   
                      #Time step events, for each individual
                      #Initialize population
-                     pop <- init$humans$pop 
+                     initk <- init
+                     pop <- initk$humans$pop 
                      N <- nrow(pop)
                      ever_lived <- N
-                     SAC <- init$humans$SAC
+                     SAC <- initk$humans$SAC
                      
                      true_prev <- c(0)
                      eggs_prev <- c(0)
@@ -83,15 +96,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                      avg_geom_intensity_SAC <- c(0)
                      avg_intensity <- c(0)
                      avg_intensity_SAC <- c(0)
-                     inf_snail <- init$snails$I0
-                     susc_snail <- init$snails$S0
-                     exp_snail <- init$snails$E0
+                     inf_snail <- initk$snails$I0
+                     susc_snail <- initk$snails$S0
+                     exp_snail <- initk$snails$E0
                      
                      #Create initial cloud
                      #Initialize quantities
-                     m_in <- sum(init$environment$contributions0)
+                     m_in <- sum(initk$environment$contributions0)
                      ## Start values
-                     newstart <- c(init$snails$S0, init$snails$E0, init$snails$I0, init$snails$C0) #Initializing snails
+                     newstart <- c(initk$snails$S0, initk$snails$E0, initk$snails$I0, initk$snails$C0) #Initializing snails
                      cercariae <- 0 #to eventually plot the cercariae (cloud)
                      ind_file <- c()
                      for(t in 2:(12*T)){
@@ -107,15 +120,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        ########## BIRTHS
                        # (births and migration: deterministic processed -> fixed rate)
                        #for now birth rate does not depend on age-specific female fertility
-                       births <- round(parms$demography$birth_rate*(nrow(pop)/1000)/12)
+                       births <- round(parmsk$demography$birth_rate*(nrow(pop)/1000)/12)
                        #new born
                        
                        pop <- bind_rows(pop, 
                                         data.frame(age=0,
                                                    sex=as.numeric(rbernoulli(births, 0.5)),
                                                    jw1 = 0,
-                                                   Ind_sus = rgamma(births, shape = parms$parasite$k_w, scale = 1/parms$parasite$k_w),
-                                                   complier = as.numeric(rbernoulli(births, 1-parms$mda$fr_excluded)),
+                                                   Ind_sus = rgamma(births, shape = parmsk$parasite$k_w, scale = 1/parmsk$parasite$k_w),
+                                                   complier = as.numeric(rbernoulli(births, 1-parmsk$mda$fr_excluded)),
                                                    ID = c((ever_lived+1):(ever_lived+births)),
                                                    death_age = 100,
                                                    age_group = 1,
@@ -154,7 +167,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        ########## MIGRATION
                        #For now we do not account for age-specific emigration. We only select an eligible age group (5-55)
-                       lambda <- round(parms$demography$emig_rate*(nrow(pop)/1000)/12)
+                       lambda <- round(parmsk$demography$emig_rate*(nrow(pop)/1000)/12)
                        emigrated <- sample(which(pop$age>5&pop$age<55), lambda)
                        if(length(emigrated)>0)
                          pop <- pop[-emigrated,]
@@ -165,15 +178,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        #Relative exposure
                        if(exposure=="ICL")
-                         rel_exp <- Age_profile_exp(parms$exposure$ICL_derived$ages,
-                                                     parms$exposure$ICL_derived$exp,
+                         rel_exp <- Age_profile_exp(parmsk$exposure$ICL_derived$ages,
+                                                     parmsk$exposure$ICL_derived$exp,
                                                      pop$age,
-                                                     parms$exposure$ICL_derived$method)
+                                                     parmsk$exposure$ICL_derived$method)
                        if(exposure=="Sow")
-                         rel_exp <- Age_profile_exp(parms$exposure$Sow_derived$ages,
-                                                     parms$exposure$Sow_derived$exp,
+                         rel_exp <- Age_profile_exp(parmsk$exposure$Sow_derived$ages,
+                                                     parmsk$exposure$Sow_derived$exp,
                                                      pop$age,
-                                                     parms$exposure$Sow_derived$method)
+                                                     parmsk$exposure$Sow_derived$method)
                        
                        cum_exp <- sum(rel_exp$y*pop$Ind_sus) #Cumulative exposure
                        
@@ -186,17 +199,17 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        killed_worms1 <- 0
                        killed_worms2 <- 0
                        killed_worms3 <- 0
-                       if(t %in% c(12*seq(parms$mda$start, parms$mda$end, parms$mda$frequency))){
-                         target <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi)
-                         compliers <- which(pop$age >= parms$mda$age.lo & pop$age <= parms$mda$age.hi & pop$complier==1)
+                       if(t %in% c(12*seq(parmsk$mda$start, parmsk$mda$end, parmsk$mda$frequency))){
+                         target <- which(pop$age >= parmsk$mda$age.lo & pop$age <= parmsk$mda$age.hi)
+                         compliers <- which(pop$age >= parmsk$mda$age.lo & pop$age <= parmsk$mda$age.hi & pop$complier==1)
                          fr_compliers <- sum(pop$complier[target])/length(target)
-                         real_coverage <- parms$mda$coverage/fr_compliers
+                         real_coverage <- parmsk$mda$coverage/fr_compliers
                          treated <- sample(compliers, real_coverage*length(compliers)) #index of individuals
                          n_treated <- length(treated)
                          #Killing of worms in the three age baskets:
-                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parms$mda$efficacy)
-                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = parms$mda$efficacy)
-                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = parms$mda$efficacy)
+                         killed_worms1 <- rbinom(n_treated, size = pop$wp1[treated], prob = parmsk$mda$efficacy)
+                         killed_worms2 <- rbinom(n_treated, size = pop$wp2[treated], prob = parmsk$mda$efficacy)
+                         killed_worms3 <- rbinom(n_treated, size = pop$wp3[treated], prob = parmsk$mda$efficacy)
                          pop$wp1[treated] = pop$wp1[treated] - killed_worms1
                          pop$wp2[treated] = pop$wp2[treated] - killed_worms2
                          pop$wp3[treated] = pop$wp3[treated] - killed_worms3
@@ -213,13 +226,13 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        # 24 is the Kato-Katz conversion factor from egg counts to epg, because (stool x day) is expressed in grams
                        Tot_wp <- pop$wp1+pop$wp2+pop$wp3
                        
-                       pop$mu <- parms$parasite$eggs$alpha*Tot_wp*expon_reduction(parms$parasite$eggs$z, w=Tot_wp) 
+                       pop$mu <- parmsk$parasite$eggs$alpha*Tot_wp*expon_reduction(parmsk$parasite$eggs$z, w=Tot_wp) 
                        
-                       eggs <- round(pop$mu*24*parms$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
+                       eggs <- round(pop$mu*24*parmsk$parasite$eggs$gr_stool) #daily quantity, since particles in the environment are short-lived
                        
                        ########## 3. DIAGNOSIS 
                        # 'ec' represents the egg counts detected with a simulated Kato-Katz test. Random draw from a Negative Binomial distribution
-                       pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu)  
+                       pop$ec = rnbinom(nrow(pop), size=parmsk$parasite$eggs$k_e, mu=pop$mu)  
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
@@ -247,15 +260,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                          mirac.input = m_in[t-1] #miracidial input
                          
                          #for details about the parameters see 02_Parameters_Smansoni.R
-                         parms.ODE  <- c(beta0 = parms$snails$max.reproduction.rate, 
-                                         k = parms$snails$carrying.capacity, 
-                                         v = parms$snails$mortality.rate,
+                         parms.ODE  <- c(beta0 = parmsk$snails$max.reproduction.rate, 
+                                         k = parmsk$snails$carrying.capacity, 
+                                         v = parmsk$snails$mortality.rate,
                                          mir = mirac.input, 
-                                         b = parms$snails$snail_transmission_rate,
-                                         v2 = parms$snails$mortality.rate.infection, 
-                                         tau = parms$snails$infection.rate,
-                                         lambda = parms$snails$cerc.prod.rate, 
-                                         m = parms$snails$cerc.mortality)
+                                         b = parmsk$snails$snail_transmission_rate,
+                                         v2 = parmsk$snails$mortality.rate.infection, 
+                                         tau = parmsk$snails$infection.rate,
+                                         lambda = parmsk$snails$cerc.prod.rate, 
+                                         m = parmsk$snails$cerc.mortality)
                          
                          #Set initial conditions from the last day of previous run/month
                          ## Start values for steady state
@@ -293,7 +306,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        ########## 6. EXPOSURE OF HUMANS 
                        #Each individual acquires new worms (FOIh) and anti-reinfection immunity here applies
                        #One exposure rate per individual (based on age and individual susceptibility)
-                       pop$rate = FOIh(l=cercariae[t], zeta=parms$parasite$zeta, rel_exp=rel_exp, is=pop$Ind_sus)*expon_reduction(parms$immunity$imm, pop$cum_dwp)/cum_exp
+                       pop$rate = FOIh(l=cercariae[t], zeta=parmsk$parasite$zeta, rel_exp=rel_exp, is=pop$Ind_sus)*expon_reduction(parmsk$immunity$imm, pop$cum_dwp)/cum_exp
                        #pop$rate <- pop$rate*logistic(k=imm, w0=w0_imm, w = pop$cum_dwp)
                        
                        ########## 7. SAVE OUTPUT
@@ -346,15 +359,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        #First stage juveniles (new acquired)
                        pop$jw1 = rpois(nrow(pop), pop$rate) 
-                       if(t <= parms$parasite$ext.foi$duration*12)
-                         pop$jw1 = pop$jw1 + round(parms$parasite$ext.foi$value*pop$Ind_sus)
+                       if(t <= parmsk$parasite$ext.foi$duration*12)
+                         pop$jw1 = pop$jw1 + round(parmsk$parasite$ext.foi$value*pop$Ind_sus)
                        
                        ### Adults worm pairs
                        # Aging of worms: Erlang distributed lifespans
                        # Three baskets: wp1, wp2, wp3, three aging groups
-                       aging_1 <- rbinom(nrow(pop), pop$wp1, parms$parasite$phi)
-                       aging_2 <- rbinom(nrow(pop), pop$wp2, parms$parasite$phi)
-                       aging_3 <- rbinom(nrow(pop), pop$wp3, parms$parasite$phi) #these are the dying_pairs
+                       aging_1 <- rbinom(nrow(pop), pop$wp1, parmsk$parasite$phi)
+                       aging_2 <- rbinom(nrow(pop), pop$wp2, parmsk$parasite$phi)
+                       aging_3 <- rbinom(nrow(pop), pop$wp3, parmsk$parasite$phi) #these are the dying_pairs
                        
                        pop$wp1 = pop$wp1 + new_pairs - aging_1
                        pop$wp2 = pop$wp2 + aging_1 - aging_2
@@ -398,8 +411,12 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                                    avg_intensity_SAC = avg_intensity_SAC,
                                    inf_snail = inf_snail,
                                    susc_snail = susc_snail,
-                                   exp_snail = exp_snail)
-                     #})
-                   }
-
-stopCluster(cluster)
+                                   exp_snail = exp_snail)       
+                    #prova = 2
+                    #return(prova) #print di base funziona
+                    #return(res) 
+                    #write.csv(res, file = file.path(pop.output.dir, paste("/Res_", k, ".RDS", sep = "")))
+                     #}) #This come from profvis
+                    }
+#print(results)
+#stopCluster(cluster)

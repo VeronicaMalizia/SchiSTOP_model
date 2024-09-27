@@ -37,17 +37,22 @@ library(foreach)
 library(doParallel)
 library(patchwork)
 #library(profvis)
-library(rstudioapi)
-library(beepr)
+#library(rstudioapi)
+#library(beepr)
 
 ################
 # Setting source and output directories
 ################
-source.dir <- dirname(getActiveDocumentContext()$path)
+source.dir <- "/home/vmalizia/SchiSTOP_model"
 setwd(source.dir)
 output.dir <- file.path(source.dir, "/Output")
 if(!file.exists(output.dir)){
   dir.create(output.dir)
+}
+#Population-level results
+pop.output.dir <- file.path(output.dir, "/Population")
+if(!file.exists(pop.output.dir)){
+  dir.create(pop.output.dir)
 }
 
 ################
@@ -114,34 +119,28 @@ time.end - time.start
 #Collating and saving population-level results 
 ################
 #Population-level results
-#Set endemicity setting:
-pop.output.dir <- file.path(output.dir, "Population")
-if(!file.exists(pop.output.dir)){
-  dir.create(pop.output.dir)
-}
-#Collating and saving population-level output
+
 #Individual output is automatically saved throughout the simulations (in 04_Model_specification.R), unless silenced in the simulation settings
 #res <- bind_rows(results)
-saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
-                           paste(setting, ".RDS", sep = "")))
-
-
+#print(res)
+#saveRDS(bind_rows(results), file = file.path(pop.output.dir, paste(setting, ".RDS", sep = "")))
+write.csv(bind_rows(results), file = file.path(pop.output.dir, paste(setting, ".csv", sep = "")))
 ################
 #Check equilibria
 ################
 
 #Are there faded runs?
-faded <- res %>%
-  filter(time==(parms$mda$start-1)*12) %>%
-  group_by(Immunity, Snails, DDF) %>%
-  summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
-n_faded <- length(which(faded$faded_seed>0))
-#Average by seed
-if(n_faded>0){
-  res <- res[- which(res$time==(parms$mda$start-1)*12 & res$eggs_prev_SAC==0), ]
-  saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
-                                               paste(setting, ".RDS", sep = "")))
-}
+# faded <- res %>%
+#   filter(time==(parms$mda$start-1)*12) %>%
+#   group_by(Immunity, Snails, DDF) %>%
+#   summarise(faided_seed = length(which(eggs_prev_SAC==0))*100/seeds)
+# n_faded <- length(which(faded$faded_seed>0))
+# #Average by seed
+# if(n_faded>0){
+#   res <- res[- which(res$time==(parms$mda$start-1)*12 & res$eggs_prev_SAC==0), ]
+#   saveRDS(bind_rows(results), file = file.path(pop.output.dir, 
+#                                                paste(setting, ".RDS", sep = "")))
+# }
 
 ## Average results and plot for explorative checks if needed
 # Basic plot

@@ -8,10 +8,10 @@
 # Species of interest: Schistosoma mansoni
 #############################
 
-T <- 300 #number of simulated years
-seeds <- 100 #stochastic seeds
+T <- 100 #number of simulated years
+seeds <- 3 #stochastic seeds
 fr <- 10 #frequency for printing to file the individual output [years] - this is to save memory
-write.output <- TRUE #disable individual output if not needed (saving time and memory)
+write.output <- FALSE #disable individual output if not needed (saving time and memory)
 
 ################
 #SETTING THE MODELLING SCENARIO: combinations of regulating mechanisms and age-exposure function
@@ -23,8 +23,8 @@ write.output <- TRUE #disable individual output if not needed (saving time and m
 # Two strategies for the manuscript: #SAC (5-15ys) #community-wide >= 2ys (WHO)
 parms$mda <- list(age.lo = 5, 
                  age.hi = 15,
-                 start = 150,
-                 end = 159,
+                 start = 0,
+                 end = 0,
                  frequency = 1, #annual
                  coverage = 0.75,
                  fr_excluded = 0.05, #systematic non-compliance 
@@ -53,6 +53,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   filter(equilibrium==TRUE) %>%
+  filter(DDF_strength == "Mild" & imm_strength == "Mild", snails == "Mild" & endem == "Moderate") %>% 
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),
@@ -61,7 +62,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                                       endem == "High" ~ 2))
 
 # Define the title of the simulation setting. This will give the name to all the output files.
-setting <- paste(exposure, "func_SACmda", sep = "_") 
+setting <- paste(exposure, "func", sep = "_") 
 
 ################
 #Set output directory to save individual results
