@@ -62,9 +62,3 @@ parms <- list(#Demography
 
 parms$parasite$phi = 1-exp(-3/(parms$parasite$Tw - parms$parasite$pp)) #(monthly) proportion of adult worm pairs aging from age basket i to i+1, assuming 3 baskets for the Erlang distribution. 
 
-# age_groups <- c(0, 5, 10, 16, 200)
-# exposure_rates <- c(0.032, 0.61, 1, 0.06, 0.06) #Relative Age-specific exposure rates (activity/person/day) 
-# Moderate exposure in adults
-
-#exposure_rates <- c(0.33, 0.44, 0.22, 0) #Relative Age-specific exposure rates (activity/person/day) 
-#Data from water contacts computed from Seydou S., De Vlas SJ, et al. (2011)
