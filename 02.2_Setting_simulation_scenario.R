@@ -8,10 +8,10 @@
 # Species of interest: Schistosoma mansoni
 #############################
 
-T <- 300 #number of simulated years
-seeds <- 100 #stochastic seeds
+T <- 300 #number of simulated years #300 for paper
+seeds <- 100 #stochastic seeds #100 for paper
 fr <- 10 #frequency for printing to file the individual output [years] - this is to save memory
-write.output <- TRUE #disable individual output if not needed (saving time and memory)
+write.output <- FALSE #disable individual output if not needed (saving time and memory)
 
 ################
 #SETTING THE MODELLING SCENARIO: combinations of regulating mechanisms and age-exposure function
@@ -53,6 +53,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
   filter(equilibrium==TRUE) %>%
+  filter(DDF_strength == "Mild", snails == "Mild", imm_strength == "Mild", endem == "Moderate") %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
                                    endem == "High" ~ 5),

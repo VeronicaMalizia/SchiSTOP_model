@@ -25,6 +25,7 @@ parms <- list(#Demography
                                             max = 100, #eggs plateau if using hyperbolic saturating function for DDF
                                             gr_stool = 150, #daily gr of stool produced by each human individual
                                             z = 0.0007, #severity of density-dependent fecundity
+                                            n.slides = 1, #number of slides per stool sample
                                             k_e = 0.87)), #aggregation parameter of egg counts detected (0.1 SCHISTOX; 0.87 de Vlas1992, but with three months interval and 25gr KK)
                                             #co_rate <- 1 #Average contribution rate (monthly) #can be improved to include seasonal patterns
               exposure = list(#model-derived from Toor2018 and Turner2017

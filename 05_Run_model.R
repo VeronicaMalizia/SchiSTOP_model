@@ -155,9 +155,9 @@ if(n_faded>0){
 #             snail_inf = mean(inf_snail),
 #             snail_exp = mean(exp_snail),
 #             snail_prev = mean(inf_snail/(susc_snail+inf_snail+exp_snail)))
-
-#filter(data_avg, Endemicity == "Low") %>%
-# data_avg %>% 
+# 
+# #filter(data_avg, Endemicity == "Low") %>%
+# data_avg %>%
 # ggplot(aes(x=time/12, group=interaction(DDF, Endemicity))) +
 #   # geom_line(data = filter(res, Endemicity == "Low"),
 #   #           aes(y=eggs_prev_SAC*100,
@@ -170,7 +170,7 @@ if(n_faded>0){
 #   facet_grid(Snails ~ Immunity, labeller = labeller(.rows = label_both, .cols = label_both)) +
 #   scale_y_continuous(name = "Prevalence of infection in SAC (%) \n",
 #                      breaks = seq(0, 100, 10),
-#                      limits = c(0, 40),
+#                      limits = c(0, 50),
 #                      expand = c(0, 0)) +
 #   scale_x_continuous(name = "\n Time [Years]",
 #                      expand = c(0, 0)) +

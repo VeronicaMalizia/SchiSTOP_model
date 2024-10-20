@@ -219,7 +219,15 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        
                        ########## 3. DIAGNOSIS 
                        # 'ec' represents the egg counts detected with a simulated Kato-Katz test. Random draw from a Negative Binomial distribution
-                       pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu)  
+                       if (parms$parasite$eggs$n.slides == 1)        
+                        pop$ec = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu)  
+                       
+                       if (parms$parasite$eggs$n.slides == 2) {
+                         ec1 = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu) 
+                         ec2 = rnbinom(nrow(pop), size=parms$parasite$eggs$k_e, mu=pop$mu) 
+                         avg.ec = apply(cbind(ec1,ec2), 1, mean) #take the mean between the two slides per person
+                         pop$ec = avg.ec 
+                       }
                        
                        ########## 4. CONTRIBUTION to the environment
                        #Individual contributions
