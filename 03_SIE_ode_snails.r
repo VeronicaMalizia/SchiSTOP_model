@@ -9,7 +9,7 @@
 
 #Daily time steps for snail population dynamics
 
-#This script purely explores snails dynamics. It is not called within the main formulation of SchiSTOP.
+#This script purely explores snails dynamics. It is not called within the main formulation of SchiSTOP and can be neglected for simulations.
 #The ODE module for snails is in fact explicitely written and included in the specification of the ABM.
 #############################
 rm(list = ls())
@@ -139,10 +139,11 @@ legend("topright",
        inset = c(0.1, 0.1))
 
 #Solving iteratively for different carring capacities
+#For old comparisons and explorations.  
 ks <- c(1000, 5000, 10000, 20000)
 for(i in 1:length(ks)){
   parms  <- c(beta0 = max.reproduction.rate, k = ks[i], v = mortality.rate,
-              snail_exposure = snail_exposure_rate, mir = mirac.input, l0 = max.invasion, chi = rej.prob, 
+              b = snail_transmission_rate, mir = mirac.input, #l0 = max.invasion, #chi = rej.prob, 
               v2 = mortality.rate.infection, tau = infection.rate,
               lambda = cerc.prod.rate, m = cerc.mortality)
   assign(paste("out_", ks[i], sep = ""),
