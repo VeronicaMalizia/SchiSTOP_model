@@ -347,7 +347,7 @@ results <- foreach(k = 1:nrow(stoch_scenarios),
                        #Juvenile worms at stage 3 do pair and move to stage 4. The ones who don't, do not survive.
                        #per each human host, juvenile worms at stage 3 are assigned with sex
                        malesnw <- rbinom(nrow(pop), pop$jw3, 0.5)
-                       new_pairs <- pmin(malesnw, pop$jw3) #From here on we track worm pairs as infective units. 
+                       new_pairs <- pmin(malesnw, pop$jw3 - malesnw) #From here on we track worm pairs as infective units. 
                        
                        pop$jw3 = pop$jw2 
                        pop$jw2 = pop$jw1 
