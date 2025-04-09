@@ -36,7 +36,7 @@ parms$mda <- list(age.lo = 5,
 # 2. based on water-contacts here estimated, based on Sow2011 and Fulford1996
 exposure = "Sow" #Choices: "ICL" (model-derived), "Sow" (water contacts)
 
-stoch_scenarios <- expand.grid(list(seed = 1:seeds,
+stoch_scenarios <- expand.grid(list(seed = 1:seeds, ## For simplicity, DO NOT change the order here if you do not want to simulate certain scenarios, but apply this change at line 55
                                     DDF_strength = c("Absent", "Mild", "Strong"),
                                     imm_strength = c("Absent", "Mild", "Strong"),
                                     snails = c("Absent", "Mild", "Strong"),
@@ -52,6 +52,7 @@ stoch_scenarios <- mutate(stoch_scenarios,
                           worms_aggr = rep(zetas$Kw, each = seeds),
                           tr_snails = rep(zetas$`Transmission on snails`, each = seeds),
                           equilibrium = rep(zetas$Equilibrium, each = seeds)) %>%
+## Filter HERE the scenarios you want to simulate
   filter(equilibrium==TRUE) %>%
   mutate(Ext_foi_value = case_when(endem == "Low" ~ 0.5,
                                    endem == "Moderate" ~ 1,
